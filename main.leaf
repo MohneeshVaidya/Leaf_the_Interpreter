@@ -45,4 +45,23 @@ fn (a, b, c, d) {
         putln "Oh my god, closure..";
     };
 
-}(1, 2, 3, 4);
+}(1, 5)(2)(3, 4).getUser().name = "some value";
+
+
+struct User {
+    const name = "Mohneesh Vaidya";
+    var username;
+    var email;
+    var password;
+    var age;
+}
+
+var Outer = struct {
+    const inner = struct {
+        const name = "Mohneesh Vaidya";
+        var username;
+        var email;
+        var password;
+        var age;
+    };
+};

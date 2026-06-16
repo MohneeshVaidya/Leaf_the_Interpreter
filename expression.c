@@ -59,13 +59,13 @@ Unary *makeUnary(Token token, Expression *expression, Arena *arena) {
 
 Call *makeCall(Token token, Expression *callee, Expressions *arguments, Arena *arena) {
     Call *expression = MAKE_EXPRESSION(EXPRESSION_CALL, token, arena, Call);
-    expression->callee = callee;
+    expression->object = callee;
     expression->arguments = arguments;
     return expression;
 }
 
 
-Get *makeGet(Token token, Expression *object, Expression *field, Arena *arena) {
+Get *makeGet(Token token, Expression *object, Terminal *field, Arena *arena) {
     Get *expression = MAKE_EXPRESSION(EXPRESSION_GET, token, arena, Get);
     expression->object = object;
     expression->field = field;
@@ -73,7 +73,7 @@ Get *makeGet(Token token, Expression *object, Expression *field, Arena *arena) {
 }
 
 
-Set *makeSet(Token token, Expression *object, Expression *field, Expression *value, Arena *arena) {
+Set *makeSet(Token token, Expression *object, Terminal *field, Expression *value, Arena *arena) {
     Set *expression = MAKE_EXPRESSION(EXPRESSION_SET, token, arena, Set);
     expression->object = object;
     expression->field = field;
@@ -98,6 +98,13 @@ Fn *makeFn(Token token, Arena *arena) {
     Fn *expression = MAKE_EXPRESSION(EXPRESSION_FN, token, arena, Fn);
     expression->arity = 0;
     expression->block = NULL;
+    return expression;
+}
+
+
+Struct *makeStruct(Token token, struct Block *block, Arena *arena) {
+    Struct *expression = MAKE_EXPRESSION(EXPRESSION_STRUCT, token, arena , Struct);
+    expression->block = block;
     return expression;
 }
 

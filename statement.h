@@ -14,35 +14,36 @@
 #define AS_STATEMENT(statement) ((Statement *)statement)
 
 
-#define IS_EXPRESSION(statement)        ((statement)->type == STATEMENT_EXPRESSION)
-#define IS_PUT(statement)               ((statement)->type == STATEMENT_PUT)
-#define IS_PUTLN(statement)             ((statement)->type == STATEMENT_PUTLN)
-#define IS_VAR(statement)               ((statement)->type == STATEMENT_VAR)
-#define IS_CONST(statement)             ((statement)->type == STATEMENT_CONST)
-#define IS_BLOCK(statement)             ((statement)->type == STATEMENT_BLOCK)
-#define IS_CONDITIONAL_BLOCK(statement) ((statement)->type == STATEMENT_CONDITIONAL_BLOCK)
-#define IS_IF(statement)                ((statement)->type == STATEMENT_IF)
-#define IS_FOR(statement)               ((statement)->type == STATEMENT_FOR)
-#define IS_BREAK(statement)             ((statement)->type == STATEMENT_BREAK)
-#define IS_CONTINUE(statement)          ((statement)->type == STATEMENT_CONTINUE)
-#define IS_FN_DECLARATION(statement)    ((statement)->type == STATEMENT_FN_DECLARATION)
-#define IS_RETURN(statement)            ((statement)->type == STATEMENT_RETURN)
-#define IS_STRUCT(statement)            ((statement)->type == STATEMENT_STRUCT)
+#define IS_EXPRESSION(statement)            ((statement)->type == STATEMENT_EXPRESSION)
+#define IS_PUT(statement)                   ((statement)->type == STATEMENT_PUT)
+#define IS_PUTLN(statement)                 ((statement)->type == STATEMENT_PUTLN)
+#define IS_VAR(statement)                   ((statement)->type == STATEMENT_VAR)
+#define IS_CONST(statement)                 ((statement)->type == STATEMENT_CONST)
+#define IS_BLOCK(statement)                 ((statement)->type == STATEMENT_BLOCK)
+#define IS_CONDITIONAL_BLOCK(statement)     ((statement)->type == STATEMENT_CONDITIONAL_BLOCK)
+#define IS_IF(statement)                    ((statement)->type == STATEMENT_IF)
+#define IS_FOR(statement)                   ((statement)->type == STATEMENT_FOR)
+#define IS_BREAK(statement)                 ((statement)->type == STATEMENT_BREAK)
+#define IS_CONTINUE(statement)              ((statement)->type == STATEMENT_CONTINUE)
+#define IS_FN_DECLARATION(statement)        ((statement)->type == STATEMENT_FN_DECLARATION)
+#define IS_RETURN(statement)                ((statement)->type == STATEMENT_RETURN)
+#define IS_STRUCT_DECLARATION(statement)    ((statement)->type == STATEMENT_STRUCT)
 
 
-#define AS_EXPR_STATEMENT(statement)    ((ExprStatement *)statement)
-#define AS_PUT(statement)               ((Put *)statement)
-#define AS_PUTLN(statement)             ((Putln *)statement)
-#define AS_VAR(statement)               ((Var *)statement)
-#define AS_CONST(statement)             ((Const *)statement)
-#define AS_BLOCK(statement)             ((Block *)statement)
-#define AS_CONDITIONAL_BLOCK(statement) ((ConditionalBlock *)statement)
-#define AS_IF(statement)                ((If *)statement)
-#define AS_FOR(statement)               ((For *)statement)
-#define AS_BREAK(statement)             ((Break *)statement)
-#define AS_CONTINUE(statement)          ((Continue *)statement)
-#define AS_FN_DECLARATION(statement)    ((FnDeclaration *)statement)
-#define AS_RETURN(statement)            ((Return *)statement)
+#define AS_EXPR_STATEMENT(statement)        ((ExprStatement *)statement)
+#define AS_PUT(statement)                   ((Put *)statement)
+#define AS_PUTLN(statement)                 ((Putln *)statement)
+#define AS_VAR(statement)                   ((Var *)statement)
+#define AS_CONST(statement)                 ((Const *)statement)
+#define AS_BLOCK(statement)                 ((Block *)statement)
+#define AS_CONDITIONAL_BLOCK(statement)     ((ConditionalBlock *)statement)
+#define AS_IF(statement)                    ((If *)statement)
+#define AS_FOR(statement)                   ((For *)statement)
+#define AS_BREAK(statement)                 ((Break *)statement)
+#define AS_CONTINUE(statement)              ((Continue *)statement)
+#define AS_FN_DECLARATION(statement)        ((FnDeclaration *)statement)
+#define AS_RETURN(statement)                ((Return *)statement)
+#define AS_STRUCT_DECLARATION(statement)    ((StructDeclaration *)statement)
 
 
 typedef enum StatementType {
@@ -59,7 +60,7 @@ typedef enum StatementType {
     STATEMENT_CONTINUE,
     STATEMENT_FN_DECLARATION,
     STATEMENT_RETURN,
-    STATEMENT_STRUCT,
+    STATEMENT_STRUCT_DECLARATION,
 } StatementType;
 
 
@@ -154,6 +155,13 @@ typedef struct Return {
 } Return;
 
 
+typedef struct StructDeclaration {
+    Statement meta;
+    Token name;
+    Struct *structure;
+} StructDeclaration;
+
+
 ExprStatement *makeExprStatement(Expression *expression, Arena *arena);
 Put *makePut(Expression *expression, Arena *arena);
 Putln *makePutln(Expression *expression, Arena *arena);
@@ -167,6 +175,7 @@ Break *makeBreak(Arena *arena);
 Continue *makeContinue(Arena *arena);
 FnDeclaration *makeFnDeclaration(Token name, Fn *function, Arena *arena);
 Return *makeReturn(Expression *expression, Arena *arena);
+StructDeclaration *makeStructDeclaration(Token name, Struct *structure, Arena *arena);
 
 
 struct Statements {

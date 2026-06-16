@@ -107,6 +107,14 @@ Return *makeReturn(Expression *expression, Arena *arena) {
 }
 
 
+StructDeclaration *makeStructDeclaration(Token name, Struct *structure, Arena *arena) {
+    StructDeclaration *statement = MAKE_STATEMENT(STATEMENT_STRUCT_DECLARATION, arena, StructDeclaration);
+    statement->name = name;
+    statement->structure = structure;
+    return statement;
+}
+
+
 Statements *makeStatements(Arena *arena) {
     Statements *statements = ARENA_ALLOCATE(arena, Statements);
     statements->capacity = 0;

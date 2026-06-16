@@ -26,6 +26,7 @@
 #define IS_GROUP(expression)        ((expression)->type == EXPRESSION_GROUP)
 #define IS_TERMINAL(expression)     ((expression)->type == EXPRESSION_TERMINAL)
 #define IS_FN(expression)           ((expression)->type == EXPRESSION_FN)
+#define IS_STRUCT(expression)       ((expression)->type == EXPRESSION_STRUCT)
 
 
 #define AS_COMMA(expression)        ((Comma *)expression)
@@ -39,6 +40,7 @@
 #define AS_GROUP(expression)        ((Group *)expression)
 #define AS_TERMINAL(expression)     ((Terminal *)expression)
 #define AS_FN(expression)           ((Fn *)expression)
+#define AS_STRUCT(expression)       ((Struct *)expression)
 
 
 typedef enum ExpressionType {
@@ -53,10 +55,12 @@ typedef enum ExpressionType {
     EXPRESSION_GROUP,
     EXPRESSION_TERMINAL,
     EXPRESSION_FN,
+    EXPRESSION_STRUCT,
 } ExpressionType;
 
 
 typedef struct Expressions Expressions;
+typedef struct Terminal Terminal;
 
 
 typedef struct Expression {
@@ -102,7 +106,7 @@ typedef struct Unary {
 
 typedef struct Call {
     Expression meta;
-    Expression *callee;
+    Expression *object;
     Expressions *arguments;
 } Call;
 
@@ -110,14 +114,14 @@ typedef struct Call {
 typedef struct Get {
     Expression meta;
     Expression *object;
-    Expression *field;
+    Terminal *field;
 } Get;
 
 
 typedef struct Set {
     Expression meta;
     Expression *object;
-    Expression *field;
+    Terminal *field;
     Expression *value;
 } Set;
 
@@ -128,9 +132,9 @@ typedef struct Group {
 } Group;
 
 
-typedef struct Terminal {
+struct Terminal {
     Expression meta;
-} Terminal;
+};
 
 
 typedef struct Parameter {
@@ -148,17 +152,24 @@ typedef struct Fn {
 } Fn;
 
 
+typedef struct Struct {
+    Expression meta;
+    struct Block *block;
+} Struct;
+
+
 Comma *makeComma(Token token, Expression *left, Expression *right, Arena *arena);
 Assign *makeAssign(Token token, Expression *left, Expression *right, Arena *arena);
 Ternary *makeTernary(Token token, Expression *condition, Expression *first, Expression *second, Arena *arena);
 Binary *makeBinary(Token token, Expression *left, Expression *right, Arena *arena);
 Unary *makeUnary(Token token, Expression *expression, Arena *arena);
-Call *makeCall(Token token, Expression *callee, Expressions *arguments, Arena *arena);
-Get *makeGet(Token token, Expression *object, Expression *field, Arena *arena);
-Set *makeSet(Token token, Expression *object, Expression *field, Expression *value, Arena *arena);
+Call *makeCall(Token token, Expression *object, Expressions *arguments, Arena *arena);
+Get *makeGet(Token token, Expression *object, Terminal *field, Arena *arena);
+Set *makeSet(Token token, Expression *object, Terminal *field, Expression *value, Arena *arena);
 Group *makeGroup(Token token, Expression *expression, Arena *arena);
 Terminal *makeTerminal(Token token, Arena *arena);
 Fn *makeFn(Token token, Arena *arena);
+Struct *makeStruct(Token token, struct Block *block, Arena *arena);
 
 
 struct Expressions {

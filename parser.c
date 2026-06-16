@@ -1,7 +1,5 @@
-#include <stdlib.h>
 #include <stdbool.h>
 #include <stddef.h>
-#include <stdio.h>
 #include <setjmp.h>
 
 
@@ -97,6 +95,17 @@ static const Token *consume(TokenType type, const char *message) {
 }
 
 
+static const Token *consumeAny(TokenType *types, int length, const char *message) {
+    for (int i = 0; i < length; i++) {
+        if (current()->type == types[i]) {
+            return forward();
+        }
+    }
+    parseError(message);
+    return NULL;
+}
+
+
 static const Token *match(TokenType type) {
     if (current()->type == type) {
         return forward();
@@ -105,8 +114,8 @@ static const Token *match(TokenType type) {
 }
 
 
-static const Token *matchAny(TokenType *types, size_t length) {
-    for (size_t i = 0; i < length; i++) {
+static const Token *matchAny(TokenType *types, int length) {
+    for (int i = 0; i < length; i++) {
         if (current()->type == *(types + i)) {
             return forward();
         }
@@ -299,7 +308,7 @@ static void parseFnParameters(Fn *function) {
 
 
 static Fn *parseFnExpression() {
-    const Token *token = consume(TOKEN_LEFT_PAREN, "expect '(' after function's name");
+    const Token *token = consume(TOKEN_LEFT_PAREN, "expect '(' before staring the parameter list");
 
     Fn *function = makeFn(*token, arena());
     parseFnParameters(function);
@@ -338,9 +347,21 @@ static Statement *parseReturn() {
 }
 
 
-static Statement *parseStruct() {
+static Struct *parseStructExpression() {
+    const Token *token = consume(TOKEN_LEFT_BRACE, "expect '{' after the struct name");
 
-    return NULL;
+    Statements *declarations = makeStatements(arena());
+    for (;!match(TOKEN_RIGHT_BRACE);) {
+        const Token *declToken = consumeAny((TokenType[]){ TOKEN_VAR, TOKEN_CONST }, 2, "expect either var or const declarations inside stuct");
+        appendStatement(declarations, (declToken->type == TOKEN_VAR) ? parseVar() : parseConst());
+    }
+    return makeStruct(*token, makeBlock(declarations, arena()), arena());
+}
+
+
+static Statement *parseStruct() {
+    const Token *name = consume(TOKEN_IDENTIFIER, "expect name after the 'struct' keyword for struct declaration");
+    return AS_STATEMENT(makeStructDeclaration(*name, parseStructExpression(), arena()));
 }
 
 
@@ -506,14 +527,27 @@ static Expressions *parseArguments() {
 
 
 static Expression *parseCall() {
-    Expression *callee = parseTerminal();
+    Expression *object = parseTerminal();
 
-    const Token *token = match(TOKEN_LEFT_PAREN);
-    for (;token;) {
-        return AS_EXPRESSION(makeCall(*token, callee, parseArguments(), arena()));
+    const Token *token = NULL;
+    for (;(token = matchAny((TokenType[]){ TOKEN_LEFT_PAREN, TOKEN_DOT }, 2));) {
+        object =  (token->type == TOKEN_LEFT_PAREN)
+                    ? AS_EXPRESSION(makeCall(*token, object, parseArguments(), arena()))
+                    : AS_EXPRESSION(makeGet(*token, object, AS_TERMINAL(parseTerminal()), arena()));
+    }
+    if (check(TOKEN_EQUAL)) {
+        if (IS_CALL(object)) {
+            parseError("expect ';' after call but provided '='");
+            return NULL;
+        }
+        if (IS_GET(object)) {
+            consume(TOKEN_EQUAL, "expect '=' is set expression");
+            Get *getObject = AS_GET(object);
+            return AS_EXPRESSION(makeSet(*current(), getObject->object, getObject->field, parseComma(), arena()));
+        }
     }
 
-    return callee;
+    return object;
 }
 
 
@@ -529,8 +563,12 @@ static Expression *parseTerminal() {
         return AS_EXPRESSION(makeGroup(*token, expression, arena()));
     }
 
-    if ((token = match(TOKEN_FN))) {
+    if (match(TOKEN_FN)) {
         return AS_EXPRESSION(parseFnExpression());
+    }
+
+    if (match(TOKEN_STRUCT)) {
+        return AS_EXPRESSION(parseStructExpression());
     }
 
     parseError("expect a number, string, nil boolean, group or function expresion");

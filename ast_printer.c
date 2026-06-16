@@ -21,6 +21,7 @@
 
 
 static void printExpression(const Expression *expression, int idents);
+static void printTerminal(const Terminal *expression);
 static void printBlock(const Block *block, int idents);
 
 
@@ -80,7 +81,7 @@ static void printArguments(Expressions *arguments, int idents) {
 
 
 static void printCall(const Call *expression, int idents) {
-    printExpression(expression->callee, idents);
+    printExpression(expression->object, idents);
     printf("( ");
     printArguments(expression->arguments, idents);
     printf(") ");
@@ -88,12 +89,18 @@ static void printCall(const Call *expression, int idents) {
 
 
 static void printGet(const Get *expression, int idents) {
-
+    printExpression(expression->object, idents);
+    printf(". ");
+    printTerminal(expression->field);
 }
 
 
 static void printSet(const Set *expression, int idents) {
-
+    printExpression(expression->object, idents);
+    printf(". ");
+    printTerminal(expression->field);
+    printf("= ");
+    printExpression(expression->value, idents);
 }
 
 
@@ -121,10 +128,16 @@ static void printParameters(const Parameter *parameters, int arity) {
 }
 
 
-static void printFn(const Fn *expression, int idents) {
+static void printFn(const Fn *function, int idents) {
     printf("fn ");
-    printParameters(expression->parameters, expression->arity);
-    printBlock(expression->block, idents);
+    printParameters(function->parameters, function->arity);
+    printBlock(function->block, idents);
+}
+
+
+static void printStruct(const Struct *structure, int idents) {
+    printf("struct ");
+    printBlock(structure->block, idents);
 }
 
 
@@ -146,6 +159,7 @@ static void printExpression(const Expression *expression, int idents) {
         case EXPRESSION_GROUP: return printGroup(AS_GROUP(expression), idents);
         case EXPRESSION_TERMINAL: return printTerminal(AS_TERMINAL(expression));
         case EXPRESSION_FN: return printFn(AS_FN(expression), idents + IDENT_SIZE);
+        case EXPRESSION_STRUCT: return printStruct(AS_STRUCT(expression), idents + IDENT_SIZE);
         default:
             break;
     }
@@ -248,9 +262,16 @@ static void printFnDeclaration(const FnDeclaration *statement, int idents) {
 }
 
 
-static void printReturn(Return *statement, int idents) {
+static void printReturn(const Return *statement, int idents) {
     printf("return ");
     printExpression(statement->expression, idents);
+    printf("\b;");
+}
+
+
+static void printStructDeclaration(const StructDeclaration *statement, int idents) {
+    printf("var %.*s = ", statement->name.length, statement->name.start);
+    printStruct(statement->structure, idents);
     printf("\b;");
 }
 
@@ -276,6 +297,7 @@ static void printStatement(const Statement *statement, int idents) {
         case STATEMENT_CONTINUE: return printContinue();
         case STATEMENT_FN_DECLARATION: return printFnDeclaration(AS_FN_DECLARATION(statement), idents + IDENT_SIZE);
         case STATEMENT_RETURN: return printReturn(AS_RETURN(statement), idents);
+        case STATEMENT_STRUCT_DECLARATION: printStructDeclaration(AS_STRUCT_DECLARATION(statement), idents + IDENT_SIZE);
         default:
             break;
     }
