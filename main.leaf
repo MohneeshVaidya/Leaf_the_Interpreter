@@ -1,0 +1,48 @@
+const name = "Mohneesh Vaidya";
+
+if true {
+    putln name;
+}
+
+for var i = 0; i < 10; i += 1 {
+    put i + 1 + " ";
+}
+
+fn add(a, b, c) {
+    putln a + b + c;
+
+    var i = 0;
+    for i < 10 {
+        putln i += 1;
+
+        if i == 10 {
+            return "hello" + "world";
+        }
+    }
+}
+
+
+var sub = fn (a, b, c) {
+    putln a - b - c;
+};
+
+
+fn (a, b, c, d) {
+    if true {
+        var i;
+        for i = 0; i < 10; i += 1 {
+            putln i + 1;
+        }
+    }
+
+    const fn2 = fn () {
+        putln "kuchh karne ki jarurat nahi padi, automatically hi ban gaya";
+    };
+
+
+    return fn () {
+        putln(a + b + c + d);
+        putln "Oh my god, closure..";
+    };
+
+}(1, 2, 3, 4);
