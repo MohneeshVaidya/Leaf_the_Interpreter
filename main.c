@@ -5,6 +5,14 @@
 #include "interpreter.h"
 
 
+// #define TEST_TABLE
+
+
+#ifdef TEST_TABLE
+#include "table_tester.h"
+#endif
+
+
 void runRepl() {
 
 }
@@ -66,6 +74,10 @@ int main(int argc, char *argv[]) {
     } else {
         fprintf(stderr, "usage: leaf <file_path>\n");
     }
+
+#ifdef TEST_TABLE
+    testTable();
+#endif
 
     return 0;
 }
