@@ -140,7 +140,9 @@ bool tableGet(const Table *table, ObjString *key, Value *value) {
     Entry *entry = findEntryForLookup(table->array, table->capacity, key);
     if (entry == NULL || entry->key == NULL) return false;
 
-    *value = entry->value;
+    if (value) {
+        *value = entry->value;
+    }
 
     return true;
 }

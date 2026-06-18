@@ -61,7 +61,7 @@ ObjString *addStrings(const ObjString *a, const ObjString *b) {
 }
 
 
-static inline int compareStrings(const ObjString *a, const ObjString *b) {
+static int compareStrings(const ObjString *a, const ObjString *b) {
     return strcmp(a->chars, b->chars);
 }
 

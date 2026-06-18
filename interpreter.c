@@ -14,9 +14,7 @@
 #include "value.h"
 
 
-#define TOKEN_TYPE(expression)   ((expression)->meta.token.type)
-#define TOKEN_LENGTH(expression) ((expression)->meta.token.length)
-#define TOKEN_START(expression) ((expression)->meta.token.start)
+#define EXPRESSION_TOKEN(expression)   ((expression)->meta.token)
 
 
 typedef struct Interpreter {
@@ -28,12 +26,12 @@ static Interpreter interpreter;
 
 
 static void initInterpreter() {
-    interpreter.env = makeEnvironment();
+    interpreter.env = makeEnv();
 }
 
 
 static void freeInterpreter() {
-    freeEnvironment(interpreter.env);
+    freeEnv(interpreter.env);
 }
 
 
@@ -77,10 +75,21 @@ static Value evaluateUnary(const Unary *expression) {
 }
 
 
+static Value getIdentifierValue(const Terminal *identifier) {
+    ObjString *name = makeString(EXPRESSION_TOKEN(identifier).start, EXPRESSION_TOKEN(identifier).length);
+    Value value;
+
+    if (!envGet(env(), name, &value)) {
+        runtimeError("trying to access undeclared name", identifier->meta.token.line);
+    }
+    return value;
+}
+
+
 static Value evaluateTerminal(const Terminal *expression) {
-    switch (TOKEN_TYPE(expression)) {
+    switch (EXPRESSION_TOKEN(expression).type) {
         case TOKEN_NUMBER: {
-            return NUMBER_VALUE(strtod(TOKEN_START(expression), NULL));
+            return NUMBER_VALUE(strtod(EXPRESSION_TOKEN(expression).start, NULL));
         }
         case TOKEN_TRUE: {
             return BOOLEAN_VALUE(true);
@@ -92,7 +101,10 @@ static Value evaluateTerminal(const Terminal *expression) {
             return NIL_VALUE;
         }
         case TOKEN_STRING: {
-            return OBJ_VALUE(makeString(TOKEN_START(expression), TOKEN_LENGTH(expression)));
+            return OBJ_VALUE(makeString(EXPRESSION_TOKEN(expression).start, EXPRESSION_TOKEN(expression).length));
+        }
+        case TOKEN_IDENTIFIER: {
+            return getIdentifierValue(expression);
         }
         default:
             break;
@@ -107,6 +119,10 @@ static Value evaluateGroup(const Group *expression) {
 
 
 static Value evaluateExpression(const Expression *expression) {
+    if (expression == NULL) {
+        return NIL_VALUE;
+    }
+
     switch (expression->type) {
         case EXPRESSION_COMMA: return evaluateComma(AS_COMMA(expression));
         case EXPRESSION_TERNARY: return evaluateTernary(AS_TERNARY(expression));
@@ -134,6 +150,21 @@ static void executePutln(const Putln *statement) {
 }
 
 
+static void executeVar(const Var *statement) {
+    ObjString *name = makeString(statement->name.start, statement->name.length);
+    Value value = evaluateExpression(statement->expression);
+
+    if (!envAdd(env(), name, value)) {
+        runtimeError("redeclaring same name in same scope", statement->name.line);
+    }
+}
+
+
+static void executeConst(const Const *statement) {
+    printf("imp_message: dont use 'const' declaration for now\n");
+}
+
+
 static void executeExprStatement(const ExprStatement *statement) {
     (void)evaluateExpression(statement->expression);
 }
@@ -143,6 +174,8 @@ static void executeStatement(const Statement *statement) {
     switch (statement->type) {
         case STATEMENT_PUT: return executePut(AS_PUT(statement));
         case STATEMENT_PUTLN: return executePutln(AS_PUTLN(statement));
+        case STATEMENT_VAR: return executeVar(AS_VAR(statement));
+        case STATEMENT_CONST: return executeConst(AS_CONST(statement));
         case STATEMENT_EXPRESSION: return executeExprStatement(AS_EXPR_STATEMENT(statement));
         default:
             break;

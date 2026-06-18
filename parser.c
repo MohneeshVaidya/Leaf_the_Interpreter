@@ -51,12 +51,12 @@ void freeParser() {
 }
 
 
-static inline Arena *arena() { return parser.arena; }
-static inline Statements *statements() { return parser.statements; }
-static inline const Token *tokens() { return parser.tokens; }
-static inline const Token *current() { return parser.current; }
-static inline const Token *previous() { return (current() == tokens()) ? current() : (current() - 1); }
-static inline bool hadErrors() { return parser.hadErrors; }
+static Arena *arena() { return parser.arena; }
+static Statements *statements() { return parser.statements; }
+static const Token *tokens() { return parser.tokens; }
+static const Token *current() { return parser.current; }
+static const Token *previous() { return (current() == tokens()) ? current() : (current() - 1); }
+static bool hadErrors() { return parser.hadErrors; }
 
 
 static void parseError(const char *message) {
@@ -68,18 +68,18 @@ static void parseError(const char *message) {
 }
 
 
-static inline bool isAtEnd() {
+static bool isAtEnd() {
     return current()->type == TOKEN_EOF;
 }
 
 
-static inline const Token *forward() {
+static const Token *forward() {
     if (current()->type != TOKEN_EOF) return parser.current++;
     return current();
 }
 
 
-static inline const Token *backward() {
+static const Token *backward() {
     if (current() == tokens()) return parser.current;
     return parser.current--;
 }
@@ -208,7 +208,7 @@ static Statement *parseBlock() {
 }
 
 
-static inline Statement *parseConditionalBlock() {
+static Statement *parseConditionalBlock() {
     Expression *condition = parseComma();
     consume(TOKEN_LEFT_BRACE, "expect '{' after if condition");
     Block *block = AS_BLOCK(parseBlock());
@@ -278,13 +278,13 @@ static Statement *parseFor() {
 }
 
 
-static inline Statement *parseBreak() {
+static Statement *parseBreak() {
     consume(TOKEN_SEMICOLON, "expect ';' after statement");
     return AS_STATEMENT(makeBreak(arena()));
 }
 
 
-static inline Statement *parseContinue() {
+static Statement *parseContinue() {
     consume(TOKEN_SEMICOLON, "expect ';' after statement");
     return AS_STATEMENT(makeContinue(arena()));
 }

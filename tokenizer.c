@@ -48,12 +48,12 @@ static void freeTokenizer() {
 }
 
 
-static inline const char *source() { return tokenizer.source; }
-static inline size_t sourceLength() { return tokenizer.sourceLength; }
-static inline const char *current() { return tokenizer.current; }
-static inline Tokens *tokens() { return tokenizer.tokens; }
-static inline int line() { return tokenizer.line; }
-static inline bool hadErrors() { return tokenizer.hadErrors; };
+static const char *source() { return tokenizer.source; }
+static size_t sourceLength() { return tokenizer.sourceLength; }
+static const char *current() { return tokenizer.current; }
+static Tokens *tokens() { return tokenizer.tokens; }
+static int line() { return tokenizer.line; }
+static bool hadErrors() { return tokenizer.hadErrors; };
 
 
 static char peekAt(int index) {
@@ -65,12 +65,12 @@ static char peekAt(int index) {
 }
 
 
-static inline char peek() {
+static char peek() {
     return peekAt(0);
 }
 
 
-static inline void forward() {
+static void forward() {
     if (peek() != '\0') tokenizer.current++;
 }
 
@@ -88,17 +88,17 @@ static bool isWs(char ch) {
 }
 
 
-static inline bool isDigit(char ch) {
+static bool isDigit(char ch) {
     return ('0' <= ch) && (ch <= '9');
 }
 
 
-static inline bool isAlpha(char ch) {
+static bool isAlpha(char ch) {
     return ('A' <= ch && ch <= 'Z') || ('a' <= ch && ch <= 'z') || (ch == '_');
 }
 
 
-static inline bool isAlphaNum(char ch) {
+static bool isAlphaNum(char ch) {
     return isAlpha(ch) || isDigit(ch);
 }
 
@@ -130,12 +130,12 @@ static void skipComment() {
 }
 
 
-static inline Token makeToken(TokenType type, const char *start, int length, int line) {
+static Token makeToken(TokenType type, const char *start, int length, int line) {
     return (Token){ type, start, length, line };
 }
 
 
-// static inline void ensureCapacity() {
+// static void ensureCapacity() {
 //     if (tokens()->count >= tokens()->capacity) {
 //         int newCapacity = GROW_CAPACITY(tokens()->capacity);
 //         tokens()->array = REALLOCATE(tokens()->array, newCapacity, Token);
@@ -189,7 +189,7 @@ static void number() {
 }
 
 
-static inline bool isSame(const char *start, size_t length, const char *other) {
+static bool isSame(const char *start, size_t length, const char *other) {
     return (length == strlen(other)) && (strncmp(start, other, length) == 0);
 }
 

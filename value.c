@@ -106,12 +106,21 @@ static Value mod(Value a, Value b, Token token) {
 }
 
 
-static inline Value and_(Value a, Value b) {
+static Value power(Value a, Value b, Token token) {
+    if (IS_NUMBER(a) && IS_NUMBER(b)) {
+        return NUMBER_VALUE(pow(AS_NUMBER(a), AS_NUMBER(b)));
+    }
+    runtimeError("'**' expects only numbers as operands", token.line);
+    return NIL_VALUE;
+}
+
+
+static Value and_(Value a, Value b) {
     return BOOLEAN_VALUE(isTruthy(a) && isTruthy(b));
 }
 
 
-static inline Value or_(Value a, Value b) {
+static Value or_(Value a, Value b) {
     return BOOLEAN_VALUE(isTruthy(a) || isTruthy(b));
 }
 
@@ -133,12 +142,12 @@ static Value equal(Value a, Value b, Token token) {
 }
 
 
-static inline Value notEqual(Value a, Value b, Token token) {
+static Value notEqual(Value a, Value b, Token token) {
     return BOOLEAN_VALUE(!AS_BOOLEAN(equal(a, b, token)));
 }
 
 
-static inline Value lesser(Value a, Value b, Token token) {
+static Value lesser(Value a, Value b, Token token) {
     if (IS_NUMBER(a) && IS_NUMBER(b)) {
         return BOOLEAN_VALUE(AS_NUMBER(a) < AS_NUMBER(b));
     }
@@ -147,7 +156,7 @@ static inline Value lesser(Value a, Value b, Token token) {
 }
 
 
-static inline Value lesserEqual(Value a, Value b, Token token) {
+static Value lesserEqual(Value a, Value b, Token token) {
     if (IS_NUMBER(a) && IS_NUMBER(b)) {
         return BOOLEAN_VALUE(AS_NUMBER(a) <= AS_NUMBER(b));
     }
@@ -156,7 +165,7 @@ static inline Value lesserEqual(Value a, Value b, Token token) {
 }
 
 
-static inline Value greater(Value a, Value b, Token token) {
+static Value greater(Value a, Value b, Token token) {
     if (IS_NUMBER(a) && IS_NUMBER(b)) {
         return BOOLEAN_VALUE(AS_NUMBER(a) > AS_NUMBER(b));
     }
@@ -165,7 +174,7 @@ static inline Value greater(Value a, Value b, Token token) {
 }
 
 
-static inline Value greaterEqual(Value a, Value b, Token token) {
+static Value greaterEqual(Value a, Value b, Token token) {
     if (IS_NUMBER(a) && IS_NUMBER(b)) {
         return BOOLEAN_VALUE(AS_NUMBER(a) >= AS_NUMBER(b));
     }
@@ -190,6 +199,9 @@ Value performBinary(Value a, Value b, Token token) {
         }
         case TOKEN_PERCENT: {
             return mod(a, b, token);
+        }
+        case TOKEN_STAR_STAR: {
+            return power(a, b, token);
         }
         case TOKEN_AND: {
             return and_(a, b);
