@@ -11,12 +11,12 @@
 
 
 static uint32_t hash(const char *chars, int length) {
-    uint32_t hash = 2166136u;
+    uint32_t hash_ = 2166136u;
     for (int i = 0; i < length; i++) {
-        hash ^= chars[i];
-        hash *= 16777619u;
+        hash_ ^= chars[i];
+        hash_ *= 16777619u;
     }
-    return hash;
+    return hash_;
 }
 
 
