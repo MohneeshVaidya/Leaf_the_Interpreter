@@ -30,6 +30,7 @@
 
 typedef enum ValueType {
     VALUE_NIL,
+    VALUE_TOMBSTONE,
     VALUE_NUMBER,
     VALUE_BOOLEAN,
     VALUE_OBJ,

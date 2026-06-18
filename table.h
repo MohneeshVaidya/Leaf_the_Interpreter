@@ -20,9 +20,9 @@ typedef struct Table {
 
 void initTable(Table *table);
 void freeTable(Table *table);
-void tableSet(Table *table, ObjString *key, Value value);
+bool tableSet(Table *table, ObjString *key, Value value);
 bool tableGet(const Table *table, ObjString *key, Value *value);
-void tableRemove(Table *table, ObjString *key);
+bool tableRemove(Table *table, ObjString *key);
 
 
 #endif
