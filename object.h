@@ -9,7 +9,7 @@
 typedef enum ObjType {
     OBJ_STRING,
     OBJ_FN,
-    OBJ_STRUCT
+    OBJ_STRUCT,
 } ObjType;
 
 

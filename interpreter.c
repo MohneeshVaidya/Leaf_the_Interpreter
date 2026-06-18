@@ -5,6 +5,7 @@
 
 #include "interpreter.h"
 #include "arena.h"
+#include "environment.h"
 #include "expression.h"
 #include "object.h"
 #include "statement.h"
@@ -16,6 +17,27 @@
 #define TOKEN_TYPE(expression)   ((expression)->meta.token.type)
 #define TOKEN_LENGTH(expression) ((expression)->meta.token.length)
 #define TOKEN_START(expression) ((expression)->meta.token.start)
+
+
+typedef struct Interpreter {
+    Environment *env;
+} Interpreter;
+
+
+static Interpreter interpreter;
+
+
+static void initInterpreter() {
+    interpreter.env = makeEnvironment();
+}
+
+
+static void freeInterpreter() {
+    freeEnvironment(interpreter.env);
+}
+
+
+static Environment *env() { return interpreter.env; }
 
 
 void error(const char *format, ...) {
@@ -39,18 +61,18 @@ static Value evaluateComma(const Comma *expression) {
 }
 
 
-static inline Value evaluateTernary(const Ternary *expression) {
+static Value evaluateTernary(const Ternary *expression) {
     Value condition = evaluateExpression(expression->condition);
     return isTruthy(condition) ? evaluateExpression(expression->first) : evaluateExpression(expression->second);
 }
 
 
-static inline Value evaluateBinary(const Binary *expression) {
+static Value evaluateBinary(const Binary *expression) {
     return performBinary(evaluateExpression(expression->left), evaluateExpression(expression->right), expression->meta.token);
 }
 
 
-static inline Value evaluateUnary(const Unary *expression) {
+static Value evaluateUnary(const Unary *expression) {
     return performUnary(evaluateExpression(expression->expression), expression->meta.token);
 }
 
@@ -79,7 +101,7 @@ static Value evaluateTerminal(const Terminal *expression) {
 }
 
 
-static inline Value evaluateGroup(const Group *expression) {
+static Value evaluateGroup(const Group *expression) {
     return evaluateExpression(expression->expression);
 }
 
@@ -128,7 +150,7 @@ static void executeStatement(const Statement *statement) {
 }
 
 
-static inline InterpretResult execute(const Statements *statements) {
+static InterpretResult execute(const Statements *statements) {
     for (int i = 0; i < statements->count; i++) {
         executeStatement(statements->array[i]);
     }
@@ -157,7 +179,9 @@ InterpretResult interpret(const char *source) {
     }
     freeTokens(&tokens);
 
+    initInterpreter();
     InterpretResult result = execute(&statements);
+    freeInterpreter();
 
     freeStatements(&statements);
     freeArena(&arena);
