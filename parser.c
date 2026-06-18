@@ -11,7 +11,7 @@
 #include "tokenizer.h"
 
 
-#define DEBUG_PRINT_AST
+// #define DEBUG_PRINT_AST
 
 
 #ifdef DEBUG_PRINT_AST
@@ -62,7 +62,7 @@ static inline bool hadErrors() { return parser.hadErrors; }
 static void parseError(const char *message) {
     parser.hadErrors = true;
     int line = previous()->line;
-    error("parse_error: [near line %d], %s", line, message);
+    error("compile_error: [near line %d], %s", line, message);
 
     longjmp(buf, 1);
 }

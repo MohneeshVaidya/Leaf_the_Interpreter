@@ -51,7 +51,7 @@ void runFile(const char *filepath) {
         fprintf(stderr, "there are compile time errors\n");
         exit(10);
     } else if (result == INTERPRET_RUNTIME_ERROR) {
-        fprintf(stderr, "program terminated with runtime errors\n");
+        fprintf(stderr, "program terminated with errors\n");
         exit(11);
     }
 

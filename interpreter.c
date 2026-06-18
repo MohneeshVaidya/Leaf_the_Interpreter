@@ -1,10 +1,21 @@
+#include <stdarg.h>
 #include <stdio.h>
+#include <stdlib.h>
 
 
 #include "interpreter.h"
 #include "arena.h"
+#include "expression.h"
+#include "object.h"
+#include "statement.h"
 #include "tokenizer.h"
 #include "parser.h"
+#include "value.h"
+
+
+#define TOKEN_TYPE(expression)   ((expression)->meta.token.type)
+#define TOKEN_LENGTH(expression) ((expression)->meta.token.length)
+#define TOKEN_START(expression) ((expression)->meta.token.start)
 
 
 void error(const char *format, ...) {
@@ -15,6 +26,114 @@ void error(const char *format, ...) {
     fprintf(stderr, "\n");
 
     va_end(args);
+}
+
+
+static Value evaluateExpression(const Expression *expression);
+
+
+static Value evaluateComma(const Comma *expression) {
+    Value result = evaluateExpression(expression->right);
+    (void)evaluateExpression(expression->left);
+    return result;
+}
+
+
+static inline Value evaluateTernary(const Ternary *expression) {
+    Value condition = evaluateExpression(expression->condition);
+    return isTruthy(condition) ? evaluateExpression(expression->first) : evaluateExpression(expression->second);
+}
+
+
+static inline Value evaluateBinary(const Binary *expression) {
+    return performBinary(evaluateExpression(expression->left), evaluateExpression(expression->right), expression->meta.token);
+}
+
+
+static inline Value evaluateUnary(const Unary *expression) {
+    return performUnary(evaluateExpression(expression->expression), expression->meta.token);
+}
+
+
+static Value evaluateTerminal(const Terminal *expression) {
+    switch (TOKEN_TYPE(expression)) {
+        case TOKEN_NUMBER: {
+            return NUMBER_VALUE(strtod(TOKEN_START(expression), NULL));
+        }
+        case TOKEN_TRUE: {
+            return BOOLEAN_VALUE(true);
+        }
+        case TOKEN_FALSE: {
+            return BOOLEAN_VALUE(false);
+        }
+        case TOKEN_NIL: {
+            return NIL_VALUE;
+        }
+        case TOKEN_STRING: {
+            return OBJ_VALUE(makeString(TOKEN_START(expression), TOKEN_LENGTH(expression)));
+        }
+        default:
+            break;
+    }
+    return NIL_VALUE;
+}
+
+
+static inline Value evaluateGroup(const Group *expression) {
+    return evaluateExpression(expression->expression);
+}
+
+
+static Value evaluateExpression(const Expression *expression) {
+    switch (expression->type) {
+        case EXPRESSION_COMMA: return evaluateComma(AS_COMMA(expression));
+        case EXPRESSION_TERNARY: return evaluateTernary(AS_TERNARY(expression));
+        case EXPRESSION_BINARY: return evaluateBinary(AS_BINARY(expression));
+        case EXPRESSION_UNARY: return evaluateUnary(AS_UNARY(expression));
+        case EXPRESSION_GROUP: return evaluateGroup(AS_GROUP(expression));
+        case EXPRESSION_TERMINAL: return evaluateTerminal(AS_TERMINAL(expression));
+        default:
+            break;
+    }
+    return NIL_VALUE;
+}
+
+
+static void executePut(const Put *statement) {
+    Value value = evaluateExpression(statement->expression);
+    printValue(value);
+}
+
+
+static void executePutln(const Putln *statement) {
+    Value value = evaluateExpression(statement->expression);
+    printValue(value);
+    printf("\n");
+}
+
+
+static void executeExprStatement(const ExprStatement *statement) {
+    (void)evaluateExpression(statement->expression);
+}
+
+
+static void executeStatement(const Statement *statement) {
+    switch (statement->type) {
+        case STATEMENT_PUT: return executePut(AS_PUT(statement));
+        case STATEMENT_PUTLN: return executePutln(AS_PUTLN(statement));
+        case STATEMENT_EXPRESSION: return executeExprStatement(AS_EXPR_STATEMENT(statement));
+        default:
+            break;
+    }
+}
+
+
+static inline InterpretResult execute(const Statements *statements) {
+    for (int i = 0; i < statements->count; i++) {
+        executeStatement(statements->array[i]);
+    }
+
+    return INTERPRET_OK;
 }
 
 
@@ -31,11 +150,16 @@ InterpretResult interpret(const char *source) {
 
     Statements statements;
     if (!parseStatements(&statements, &tokens, &arena)) {
-
+        freeTokens(&tokens);
+        freeStatements(&statements);
+        freeArena(&arena);
+        return INTERPRET_COMPILE_ERROR;
     }
     freeTokens(&tokens);
 
+    InterpretResult result = execute(&statements);
+
     freeStatements(&statements);
     freeArena(&arena);
-    return INTERPRET_OK;
+    return result;
 }

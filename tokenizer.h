@@ -25,7 +25,6 @@ typedef enum TokenType {
     TOKEN_SUPER,
     TOKEN_AND,
     TOKEN_OR,
-    TOKEN_XOR,
     TOKEN_TRUE,
     TOKEN_FALSE,
     TOKEN_IDENTIFIER,

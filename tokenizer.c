@@ -207,6 +207,12 @@ static bool keyword(const char *start, size_t length) {
     } else if (isSame(start, length, "const")) {
         appendToken(tokens(), TOKEN_CONST, start, length, line());
         return true;
+    } else if (isSame(start, length, "true")) {
+        appendToken(tokens(), TOKEN_TRUE, start, length, line());
+        return true;
+    } else if (isSame(start, length, "false")) {
+        appendToken(tokens(), TOKEN_FALSE, start, length, line());
+        return true;
     } else if (isSame(start, length, "if")) {
         appendToken(tokens(), TOKEN_IF, start, length, line());
         return true;
@@ -251,9 +257,6 @@ static bool keyword(const char *start, size_t length) {
         return true;
     } else if (isSame(start, length, "or")) {
         appendToken(tokens(), TOKEN_OR, start, length, line());
-        return true;
-    } else if (isSame(start, length, "xor")) {
-        appendToken(tokens(), TOKEN_XOR, start, length, line());
         return true;
     }
     return false;

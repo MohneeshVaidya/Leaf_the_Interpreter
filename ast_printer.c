@@ -81,26 +81,29 @@ static void printArguments(Expressions *arguments, int idents) {
 
 
 static void printCall(const Call *expression, int idents) {
+    printf("( call ");
     printExpression(expression->object, idents);
     printf("( ");
     printArguments(expression->arguments, idents);
-    printf(") ");
+    printf(") ) ");
 }
 
 
 static void printGet(const Get *expression, int idents) {
+    printf("( get ");
     printExpression(expression->object, idents);
-    printf(". ");
     printTerminal(expression->field);
+    printf(") ");
 }
 
 
 static void printSet(const Set *expression, int idents) {
+    printf("( set ( get ");
     printExpression(expression->object, idents);
-    printf(". ");
     printTerminal(expression->field);
-    printf("= ");
+    printf(") ");
     printExpression(expression->value, idents);
+    printf(") ");
 }
 
 
