@@ -14,6 +14,7 @@ typedef struct Environment {
 Environment *makeEnv();
 void freeEnv(Environment *env);
 bool envAdd(Environment *env, ObjString *name, Value value);
+bool envSet(Environment *env, ObjString *name, Value value);
 bool envGet(Environment *env, ObjString *name, Value *value);
 
 

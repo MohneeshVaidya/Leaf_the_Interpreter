@@ -387,7 +387,7 @@ static Expression *parseComma() {
 static Expression *parseAssign() {
     Expression *left = parseTernary();
 
-    const Token *token = matchAny((TokenType[]){ TOKEN_EQUAL, TOKEN_PLUS_EQUAL, TOKEN_MINUS_EQUAL, TOKEN_STAR_EQUAL, TOKEN_SLASH_EQUAL, TOKEN_SLASH_EQUAL, TOKEN_STAR_STAR_EQUAL }, 7);
+    const Token *token = matchAny((TokenType[]){ TOKEN_EQUAL, TOKEN_PLUS_EQUAL, TOKEN_MINUS_EQUAL, TOKEN_STAR_EQUAL, TOKEN_SLASH_EQUAL, TOKEN_PERCENT_EQUAL, TOKEN_STAR_STAR_EQUAL }, 7);
 
     if (token) {
         Expression *right = parseAssign();

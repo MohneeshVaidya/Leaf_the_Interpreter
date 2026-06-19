@@ -1,16 +1,12 @@
-var a = "abc";
-var b = "abd";
-
-putln a == b;
+var name1 = 10;
+var name2 = 6;
 
 
-/*
-var a = "abc";
-var b = "abc";
+{
+    var name1 = 102;
+    var name2 = 102;
+    putln name1 %= name2;
+}
 
-putln a == b;
-
-var a = "abc";
-var b = "ab" + "c";
-
-putln a == b;
+putln name1;
+putln name2;

@@ -30,6 +30,18 @@ bool envAdd(Environment *env, ObjString *name, Value value) {
 }
 
 
+bool envSet(Environment *env, ObjString *name, Value value) {
+    if (tableGet(&env->table, name, NULL)) {
+        tableSet(&env->table, name, value);
+        return true;
+    }
+    if (env->previous) {
+        return envSet(env->previous, name, value);
+    }
+    return false;
+}
+
+
 bool envGet(Environment *env, ObjString *name, Value *value) {
     if (tableGet(&env->table, name, value)) {
         return true;
