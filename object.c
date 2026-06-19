@@ -8,7 +8,7 @@
 #include "value.h"
 
 
-#define DEBUG_STRING_INTERNING
+// #define DEBUG_STRING_INTERNING
 
 
 #define INITIAL_HASH (2166136u)

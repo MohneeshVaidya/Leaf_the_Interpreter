@@ -1,11 +1,16 @@
-var name1 = "Mohneesh Vaidya";
-var name2 = "Mohneesh Vaidya";
-var name3 = name1 + " " + name2;
-var name4 = name1 + " " + name2;
+var a = "abc";
+var b = "abd";
 
-putln name3;
-putln name4;
-putln name3 == name4 ? "Yes, the strings are equal" : "No, the string are not equal";
-putln name3 != name4 ? "Yes, the strings are equal" : "No, the string are not equal";
+putln a == b;
 
-"Yes, the strings are equal"; "No, the string are not equal";
+
+/*
+var a = "abc";
+var b = "abc";
+
+putln a == b;
+
+var a = "abc";
+var b = "ab" + "c";
+
+putln a == b;
