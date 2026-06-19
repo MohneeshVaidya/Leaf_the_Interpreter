@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -229,7 +230,6 @@ static void beginScope() {
     Environment *env_ = makeEnv();
     env_->previous = env();
     interpreter.env = env_;
-    printf("entering the block\n");
 }
 
 
@@ -237,7 +237,6 @@ static void endScope() {
     Environment *env_ = env()->previous;
     freeEnv(env());
     interpreter.env = env_;
-    printf("closing the block\n");
 }
 
 
@@ -245,6 +244,33 @@ static void executeBlock(const Block *statement) {
     beginScope();
     executeStatements(statement->statements);
     endScope();
+}
+
+
+static bool executeConditionalBlock(const ConditionalBlock *block) {
+    Value condition = NIL_VALUE;
+    if (block->condition) {
+        condition = evaluateExpression(block->condition);
+        if (!isTruthy(condition)) {
+            return false;
+        }
+    }
+
+    executeBlock(block->block);
+
+    return true;
+}
+
+
+static void executeIf(const If *statement) {
+#define STATEMENT_AT(statement, index) ((statement)->statements->array[index])
+
+    for (int i = 0; i < statement->statements->count; i++) {
+        assert(IS_CONDITIONAL_BLOCK(STATEMENT_AT(statement, i)) && "If struct should have array of ConditionalBlock only");
+        if (executeConditionalBlock(AS_CONDITIONAL_BLOCK(STATEMENT_AT(statement, i)))) break;
+    }
+
+#undef STATEMENT_AT
 }
 
 
@@ -259,6 +285,7 @@ static void executeStatement(const Statement *statement) {
         case STATEMENT_PUTLN: return executePutln(AS_PUTLN(statement));
         case STATEMENT_VAR: return executeVar(AS_VAR(statement));
         case STATEMENT_BLOCK: return executeBlock(AS_BLOCK(statement));
+        case STATEMENT_IF: return executeIf(AS_IF(statement));
         case STATEMENT_EXPRESSION: return executeExprStatement(AS_EXPR_STATEMENT(statement));
         default:
             break;
