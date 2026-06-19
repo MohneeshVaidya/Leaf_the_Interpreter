@@ -47,9 +47,12 @@ typedef struct Value {
 } Value;
 
 
+struct Table;
+
+
 void printValue(Value value);
 bool isTruthy(Value a);
-Value performBinary(Value a, Value b, Token token);
+Value performBinary(Value a, Value b, Token token, struct Table *strings);
 Value performUnary(Value a, Token token);
 
 

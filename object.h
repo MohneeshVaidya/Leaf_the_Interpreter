@@ -36,8 +36,11 @@ typedef struct ObjStruct {
 } ObjStruct;
 
 
-ObjString *makeString(const char *chars, int length);
-ObjString *addStrings(const ObjString *a, const ObjString *b);
+struct Table;
+
+
+ObjString *internString(const char *chars, int length, struct Table *strings);
+ObjString *addStrings(const ObjString *a, const ObjString *b, struct Table *strings);
 bool equalStrings(const ObjString *a, const ObjString *b);
 void printObj(const Obj *obj);
 

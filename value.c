@@ -7,6 +7,7 @@
 #include "value.h"
 #include "interpreter.h"
 #include "tokenizer.h"
+#include "table.h"
 
 
 #define NUMBER_PERFORM_BINARY(a, b, op) (NUMBER_VALUE(AS_NUMBER(a) op AS_NUMBER(b)))
@@ -54,12 +55,12 @@ void printValue(Value value) {
 }
 
 
-static Value add(Value a, Value b, Token token) {
+static Value add(Value a, Value b, Token token, Table *strings) {
     if (IS_NUMBER(a) && IS_NUMBER(b)) {
         return NUMBER_PERFORM_BINARY(a, b, +);
     }
     if (IS_STRING(a) && IS_STRING(b)) {
-        return OBJ_VALUE(addStrings(AS_STRING(a), AS_STRING(b)));
+        return OBJ_VALUE(addStrings(AS_STRING(a), AS_STRING(b), strings));
     }
     runtimeError("'+' expects strings or numbers as operands", token.line);
     return NIL_VALUE;
@@ -183,10 +184,10 @@ static Value greaterEqual(Value a, Value b, Token token) {
 }
 
 
-Value performBinary(Value a, Value b, Token token) {
+Value performBinary(Value a, Value b, Token token, Table *strings) {
     switch (token.type) {
         case TOKEN_PLUS: {
-            return add(a, b, token);
+            return add(a, b, token, strings);
         }
         case TOKEN_MINUS: {
             return subtract(a, b, token);

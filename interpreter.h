@@ -14,12 +14,9 @@ typedef enum InterpretResult {
 
 
 InterpretResult interpret(const char *source);
-void error(const char *format, ...);
 
-static inline void runtimeError(const char *message, int line) {
-    error("runtime_error: [near line %d], %s", line, message);
-    exit(1);
-}
+void printError(const char *format, ...);
+void runtimeError(const char *message, int line);
 
 
 #endif

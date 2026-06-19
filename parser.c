@@ -62,7 +62,7 @@ static bool hadErrors() { return parser.hadErrors; }
 static void parseError(const char *message) {
     parser.hadErrors = true;
     int line = previous()->line;
-    error("compile_error: [near line %d], %s", line, message);
+    printError("compile_error: [near line %d], %s", line, message);
 
     longjmp(buf, 1);
 }

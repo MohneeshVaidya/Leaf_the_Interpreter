@@ -1,6 +1,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <setjmp.h>
 
 
 #include "interpreter.h"
@@ -9,6 +10,7 @@
 #include "expression.h"
 #include "object.h"
 #include "statement.h"
+#include "table.h"
 #include "tokenizer.h"
 #include "parser.h"
 #include "value.h"
@@ -17,8 +19,12 @@
 #define EXPRESSION_TOKEN(expression)   ((expression)->meta.token)
 
 
+jmp_buf buf;
+
+
 typedef struct Interpreter {
     Environment *env;
+    Table strings;
 } Interpreter;
 
 
@@ -27,18 +33,21 @@ static Interpreter interpreter;
 
 static void initInterpreter() {
     interpreter.env = makeEnv();
+    initTable(&interpreter.strings);
 }
 
 
 static void freeInterpreter() {
     freeEnv(interpreter.env);
+    freeTable(&interpreter.strings);
 }
 
 
 static Environment *env() { return interpreter.env; }
+static Table *strings() { return &interpreter.strings; }
 
 
-void error(const char *format, ...) {
+void printError(const char *format, ...) {
     va_list args;
     va_start(args, format);
 
@@ -49,12 +58,18 @@ void error(const char *format, ...) {
 }
 
 
+void runtimeError(const char *message, int line) {
+    printError("runtime_error: [near line %d], %s", line, message);
+    longjmp(buf, 1);
+}
+
+
 static Value evaluateExpression(const Expression *expression);
 
 
 static Value evaluateComma(const Comma *expression) {
-    Value result = evaluateExpression(expression->right);
     (void)evaluateExpression(expression->left);
+    Value result = evaluateExpression(expression->right);
     return result;
 }
 
@@ -66,7 +81,9 @@ static Value evaluateTernary(const Ternary *expression) {
 
 
 static Value evaluateBinary(const Binary *expression) {
-    return performBinary(evaluateExpression(expression->left), evaluateExpression(expression->right), expression->meta.token);
+    Value left = evaluateExpression(expression->left);
+    Value right = evaluateExpression(expression->right);
+    return performBinary(left, right, expression->meta.token, strings());
 }
 
 
@@ -76,7 +93,7 @@ static Value evaluateUnary(const Unary *expression) {
 
 
 static Value getIdentifierValue(const Terminal *identifier) {
-    ObjString *name = makeString(EXPRESSION_TOKEN(identifier).start, EXPRESSION_TOKEN(identifier).length);
+    ObjString *name = internString(EXPRESSION_TOKEN(identifier).start, EXPRESSION_TOKEN(identifier).length, strings());
     Value value;
 
     if (!envGet(env(), name, &value)) {
@@ -101,7 +118,7 @@ static Value evaluateTerminal(const Terminal *expression) {
             return NIL_VALUE;
         }
         case TOKEN_STRING: {
-            return OBJ_VALUE(makeString(EXPRESSION_TOKEN(expression).start, EXPRESSION_TOKEN(expression).length));
+            return OBJ_VALUE(internString(EXPRESSION_TOKEN(expression).start, EXPRESSION_TOKEN(expression).length, strings()));
         }
         case TOKEN_IDENTIFIER: {
             return getIdentifierValue(expression);
@@ -151,7 +168,7 @@ static void executePutln(const Putln *statement) {
 
 
 static void executeVar(const Var *statement) {
-    ObjString *name = makeString(statement->name.start, statement->name.length);
+    ObjString *name = internString(statement->name.start, statement->name.length, strings());
     Value value = evaluateExpression(statement->expression);
 
     if (!envAdd(env(), name, value)) {
@@ -184,6 +201,10 @@ static void executeStatement(const Statement *statement) {
 
 
 static InterpretResult execute(const Statements *statements) {
+    if (setjmp(buf)) {
+        return INTERPRET_RUNTIME_ERROR;
+    }
+
     for (int i = 0; i < statements->count; i++) {
         executeStatement(statements->array[i]);
     }
@@ -192,11 +213,18 @@ static InterpretResult execute(const Statements *statements) {
 }
 
 
+static void freeThings(Tokens *tokens, Statements *statements, Arena *arena) {
+    if (tokens) freeTokens(tokens);
+    if (statements) freeStatements(statements);
+    if (arena) freeArena(arena);
+}
+
+
 InterpretResult interpret(const char *source) {
     Tokens tokens;
     if (!makeTokens(&tokens, source)) {
         Token *errorToken = &tokens.array[tokens.count - 2];
-        error("compile_error: [at line %d], %.*s", errorToken->line, errorToken->length, errorToken->start);
+        printError("compile_error: [at line %d], %.*s", errorToken->line, errorToken->length, errorToken->start);
         return INTERPRET_COMPILE_ERROR;
     }
 
@@ -205,9 +233,7 @@ InterpretResult interpret(const char *source) {
 
     Statements statements;
     if (!parseStatements(&statements, &tokens, &arena)) {
-        freeTokens(&tokens);
-        freeStatements(&statements);
-        freeArena(&arena);
+        freeThings(&tokens, &statements, &arena);
         return INTERPRET_COMPILE_ERROR;
     }
     freeTokens(&tokens);
@@ -216,7 +242,6 @@ InterpretResult interpret(const char *source) {
     InterpretResult result = execute(&statements);
     freeInterpreter();
 
-    freeStatements(&statements);
-    freeArena(&arena);
+    freeThings(NULL, &statements, &arena);
     return result;
 }

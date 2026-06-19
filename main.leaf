@@ -1,1 +1,3 @@
-putln 1 + 2 * 2 ** 3;
+var name1 = "Mohneesh Vaidya";
+var name2 = "Mohneesh Vaidya";
+putln name1 == name2;

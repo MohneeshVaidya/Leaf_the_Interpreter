@@ -12,7 +12,7 @@ static ObjString *str(const char *s) {
     int len = 0;
     while (s[len] != '\0') len++;
 
-    return makeString(s, len);
+    return NULL; /*internString(s, len, &strings);*/
 }
 
 static void expectNumber(Table *table, const char *key, double expected) {
