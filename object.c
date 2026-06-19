@@ -8,6 +8,9 @@
 #include "value.h"
 
 
+#define DEBUG_STRING_INTERNING
+
+
 #define INITIAL_HASH (2166136u)
 
 
@@ -77,7 +80,9 @@ ObjString *internString(const char *chars, int length, struct Table *strings) {
         return string;
     }
 
-    // printf("Creating string '%.*s'\n", length, chars);
+#ifdef DEBUG_STRING_INTERNING
+    printf("Creating string '%.*s'\n", length, chars);
+#endif
 
     string = MAKE_OBJ(OBJ_STRING, ObjString);
 
@@ -104,7 +109,9 @@ ObjString *addStrings(const ObjString *a, const ObjString *b, Table *strings) {
         return string;
     }
 
-    // printf("Adding strings '%.*s' & '%.*s'\n", a->length, a->chars, b->length, b->chars);
+#ifdef DEBUG_STRING_INTERNING
+    printf("Adding strings '%.*s' & '%.*s'\n", a->length, a->chars, b->length, b->chars);
+#endif
 
     string = MAKE_OBJ(OBJ_STRING, ObjString);
 
