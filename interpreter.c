@@ -195,6 +195,7 @@ static Value evaluateExpression(const Expression *expression) {
 }
 
 
+static void executeStatement(const Statement *statement);
 static void executeStatements(const Statements *statements);
 
 
@@ -274,6 +275,22 @@ static void executeIf(const If *statement) {
 }
 
 
+static void executeFor(const For *statement) {
+    beginScope();
+
+    if (statement->initialize) executeStatement(statement->initialize);
+
+    for (;
+         (!statement->condition) ? true : isTruthy(evaluateExpression(statement->condition));
+    ) {
+        executeStatements(statement->block->statements);
+        if (statement->step) (void)evaluateExpression(statement->step);
+    }
+
+    endScope();
+}
+
+
 static void executeExprStatement(const ExprStatement *statement) {
     (void)evaluateExpression(statement->expression);
 }
@@ -286,6 +303,7 @@ static void executeStatement(const Statement *statement) {
         case STATEMENT_VAR: return executeVar(AS_VAR(statement));
         case STATEMENT_BLOCK: return executeBlock(AS_BLOCK(statement));
         case STATEMENT_IF: return executeIf(AS_IF(statement));
+        case STATEMENT_FOR: return executeFor(AS_FOR(statement));
         case STATEMENT_EXPRESSION: return executeExprStatement(AS_EXPR_STATEMENT(statement));
         default:
             break;

@@ -1,9 +1,12 @@
-if 1 != 1 {
-    putln "Yes, 1 is equal to itself";
-} elseif 2 == 3 {
-    putln "Yes, 2 is also equal to itself";
-} elseif 3 != 3 {
-    putln "Yes, 3 is also equal to itself";
-} else {
-    putln "The fallback";
+var i = nil;
+
+for i = 0; i < 11; i += 1 {
+    for var j = 0; j <= i; j += 1 {
+        put i;
+        put ", ";
+        putln j;
+    }
+
+    putln "";
+    putln "";
 }

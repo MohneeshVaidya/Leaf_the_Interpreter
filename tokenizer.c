@@ -135,15 +135,6 @@ static Token makeToken(TokenType type, const char *start, int length, int line) 
 }
 
 
-// static void ensureCapacity() {
-//     if (tokens()->count >= tokens()->capacity) {
-//         int newCapacity = GROW_CAPACITY(tokens()->capacity);
-//         tokens()->array = REALLOCATE(tokens()->array, newCapacity, Token);
-//         tokens()->capacity = newCapacity;
-//     }
-// }
-
-
 static void appendToken(Tokens *tokens, TokenType type, const char *start, int length, int line) {
     ENSURE_CAPACITY(tokens, Token);
     tokens->array[tokens->count] = makeToken(type, start, length, line);
@@ -257,6 +248,9 @@ static bool keyword(const char *start, size_t length) {
         return true;
     } else if (isSame(start, length, "or")) {
         appendToken(tokens(), TOKEN_OR, start, length, line());
+        return true;
+    } else if (isSame(start, length, "nil")) {
+        appendToken(tokens(), TOKEN_NIL, start, length, line());
         return true;
     }
     return false;
