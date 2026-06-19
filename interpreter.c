@@ -17,15 +17,23 @@
 #include "value.h"
 
 
+#define MAX_LOOP_DEPTH (256)
+#define MAX_CALL_DEPTH  (256)
+
+
 #define EXPRESSION_TOKEN(expression)   ((expression)->meta.token)
 
 
-jmp_buf buf;
+jmp_buf interpreterBuf;
+jmp_buf breakBufs[MAX_LOOP_DEPTH];
+jmp_buf continueBufs[MAX_LOOP_DEPTH];
 
 
 typedef struct Interpreter {
     Environment *env;
     Table strings;
+    bool isLoop;
+    int loopIdx;
 } Interpreter;
 
 
@@ -35,17 +43,23 @@ static Interpreter interpreter;
 static void initInterpreter() {
     interpreter.env = makeEnv();
     initTable(&interpreter.strings);
+    interpreter.isLoop = false;
+    interpreter.loopIdx= -1;
 }
 
 
 static void freeInterpreter() {
     freeEnv(interpreter.env);
     freeTable(&interpreter.strings);
+    interpreter.isLoop = false;
+    interpreter.loopIdx = -1;
 }
 
 
 static Environment *env() { return interpreter.env; }
 static Table *strings() { return &interpreter.strings; }
+static bool isLoop() { return interpreter.isLoop; }
+static int loopIdx() { return interpreter.loopIdx; }
 
 
 void printError(const char *format, ...) {
@@ -61,7 +75,7 @@ void printError(const char *format, ...) {
 
 void runtimeError(const char *message, int line) {
     printError("runtime_error: [near line %d], %s", line, message);
-    longjmp(buf, 1);
+    longjmp(interpreterBuf, 1);
 }
 
 
@@ -277,17 +291,42 @@ static void executeIf(const If *statement) {
 
 static void executeFor(const For *statement) {
     beginScope();
+    bool prev = isLoop();
+    interpreter.isLoop = true;
+    interpreter.loopIdx++;
 
-    if (statement->initialize) executeStatement(statement->initialize);
+    if (setjmp(breakBufs[loopIdx()]) == 0) {
+        if (statement->initialize) executeStatement(statement->initialize);
 
-    for (;
-         (!statement->condition) ? true : isTruthy(evaluateExpression(statement->condition));
-    ) {
-        executeStatements(statement->block->statements);
-        if (statement->step) (void)evaluateExpression(statement->step);
+        for (;
+            (!statement->condition) ? true : isTruthy(evaluateExpression(statement->condition));
+        ) {
+            if (setjmp(continueBufs[loopIdx()]) == 0) {
+                executeBlock(statement->block);
+            }
+            if (statement->step) (void)evaluateExpression(statement->step);
+        }
     }
 
+    interpreter.loopIdx--;
+    interpreter.isLoop = prev;
     endScope();
+}
+
+
+static void executeBreak(const Break *statement) {
+    if (isLoop()) {
+        longjmp(breakBufs[loopIdx()], 1);
+    }
+    runtimeError("'break' can only be used inside the context of loop", 0);
+}
+
+
+static void executeContinue(const Continue *statement) {
+    if (isLoop()) {
+        longjmp(continueBufs[loopIdx()], 1);
+    }
+    runtimeError("'continue' can only be used inside the context of loop", 0);
 }
 
 
@@ -304,6 +343,8 @@ static void executeStatement(const Statement *statement) {
         case STATEMENT_BLOCK: return executeBlock(AS_BLOCK(statement));
         case STATEMENT_IF: return executeIf(AS_IF(statement));
         case STATEMENT_FOR: return executeFor(AS_FOR(statement));
+        case STATEMENT_BREAK: return executeBreak(AS_BREAK(statement));
+        case STATEMENT_CONTINUE: return executeContinue(AS_CONTINUE(statement));
         case STATEMENT_EXPRESSION: return executeExprStatement(AS_EXPR_STATEMENT(statement));
         default:
             break;
@@ -319,7 +360,7 @@ static void executeStatements(const Statements *statements) {
 
 
 static InterpretResult interpret_(const Statements *statements) {
-    if (setjmp(buf)) {
+    if (setjmp(interpreterBuf)) {
         return INTERPRET_RUNTIME_ERROR;
     }
 
