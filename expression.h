@@ -9,7 +9,7 @@
 #include "tokenizer.h"
 
 
-#define MAX_PARAMETERS 255
+#define MAX_PARAMETERS 256
 
 
 #define AS_EXPRESSION(expression)   ((Expression *)expression)

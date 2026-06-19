@@ -17,8 +17,8 @@
 #include "value.h"
 
 
-#define MAX_LOOP_DEPTH (256)
-#define MAX_CALL_DEPTH  (256)
+#define MAX_LOOP_DEPTH (1024)
+#define MAX_CALL_DEPTH  (1024)
 
 
 #define EXPRESSION_TOKEN(expression)   ((expression)->meta.token)
@@ -27,13 +27,17 @@
 jmp_buf interpreterBuf;
 jmp_buf breakBufs[MAX_LOOP_DEPTH];
 jmp_buf continueBufs[MAX_LOOP_DEPTH];
+jmp_buf functionBufs[MAX_CALL_DEPTH];
 
 
 typedef struct Interpreter {
     Environment *env;
     Table strings;
     bool isLoop;
+    bool isFunction;
     int loopIdx;
+    int functionIdx;
+    Value returnValue;
 } Interpreter;
 
 
@@ -44,7 +48,10 @@ static void initInterpreter() {
     interpreter.env = makeEnv();
     initTable(&interpreter.strings);
     interpreter.isLoop = false;
+    interpreter.isFunction = false;
     interpreter.loopIdx= -1;
+    interpreter.functionIdx = -1;
+    interpreter.returnValue = NIL_VALUE;
 }
 
 
@@ -52,14 +59,20 @@ static void freeInterpreter() {
     freeEnv(interpreter.env);
     freeTable(&interpreter.strings);
     interpreter.isLoop = false;
+    interpreter.isFunction = false;
     interpreter.loopIdx = -1;
+    interpreter.functionIdx = -1;
+    interpreter.returnValue = NIL_VALUE;
 }
 
 
 static Environment *env() { return interpreter.env; }
 static Table *strings() { return &interpreter.strings; }
 static bool isLoop() { return interpreter.isLoop; }
+static bool isFunction() { return interpreter.isFunction; }
 static int loopIdx() { return interpreter.loopIdx; }
+static int functionIdx() { return interpreter.functionIdx; }
+static Value returnValue() { return interpreter.returnValue; }
 
 
 void printError(const char *format, ...) {
@@ -81,6 +94,9 @@ void runtimeError(const char *message, int line) {
 
 static Value evaluateExpression(const Expression *expression);
 
+
+static void executeStatement(const Statement *statement);
+static void executeStatements(const Statements *statements);
 
 static Value evaluateComma(const Comma *expression) {
     (void)evaluateExpression(expression->left);
@@ -146,10 +162,56 @@ static Value evaluateUnary(const Unary *expression) {
 }
 
 
+static Value callFunction(ObjFn *function, const Expressions *arguments, int line) {
+    interpreter.returnValue = NIL_VALUE;
+
+    if (arguments->count > MAX_PARAMETERS) {
+        runtimeError("argument count exceeds 256", line);
+    }
+
+    if (arguments->count != function->arity) {
+        runtimeError("argument count doesn't match the parameter count", line);
+    }
+
+    interpreter.functionIdx++;
+
+    Environment *currentEnv = env();
+    bool currentIsFunction = isFunction();
+    interpreter.isFunction = true;
+
+    Environment *env_ = makeEnv();
+    for (int i = 0; i < function->arity; i++) {
+        ObjString *name = internString(function->parameters[i].start, function->parameters[i].length, strings());
+        envAdd(env_, name, evaluateExpression(arguments->array[i]));
+    }
+    env_->previous = function->closure;
+    interpreter.env = env_;
+
+    if (setjmp(functionBufs[functionIdx()]) == 0) {
+        executeStatements(function->block->statements);
+    }
+
+    interpreter.isFunction = currentIsFunction;
+    interpreter.env = currentEnv;
+
+    interpreter.functionIdx--;
+    return returnValue();
+}
+
+
+static Value evaluateCall(const Call *expression) {
+    Value value = evaluateExpression(expression->object);
+    if (!IS_OBJ_FN(value)) {
+        runtimeError("only functions can be called", EXPRESSION_TOKEN(expression).line);
+    }
+    ObjFn *function = AS_OBJ_FN(value);
+    return callFunction(function, expression->arguments, EXPRESSION_TOKEN(expression).line);
+}
+
+
 static Value getIdentifierValue(const Terminal *identifier) {
     ObjString *name = internString(EXPRESSION_TOKEN(identifier).start, EXPRESSION_TOKEN(identifier).length, strings());
     Value value;
-
     if (!envGet(env(), name, &value)) {
         runtimeError("trying to access undeclared name", identifier->meta.token.line);
     }
@@ -189,6 +251,15 @@ static Value evaluateGroup(const Group *expression) {
 }
 
 
+static Value evaluateFn(const Fn *expression) {
+    ObjFn *objFn = makeObjFn((Parameter *)expression->parameters,
+                             expression->arity,
+                             expression->block,
+                             env());
+    return OBJ_VALUE(objFn);
+}
+
+
 static Value evaluateExpression(const Expression *expression) {
     if (expression == NULL) {
         return NIL_VALUE;
@@ -200,17 +271,15 @@ static Value evaluateExpression(const Expression *expression) {
         case EXPRESSION_TERNARY: return evaluateTernary(AS_TERNARY(expression));
         case EXPRESSION_BINARY: return evaluateBinary(AS_BINARY(expression));
         case EXPRESSION_UNARY: return evaluateUnary(AS_UNARY(expression));
-        case EXPRESSION_GROUP: return evaluateGroup(AS_GROUP(expression));
+        case EXPRESSION_CALL: return evaluateCall(AS_CALL(expression));
         case EXPRESSION_TERMINAL: return evaluateTerminal(AS_TERMINAL(expression));
+        case EXPRESSION_GROUP: return evaluateGroup(AS_GROUP(expression));
+        case EXPRESSION_FN: return evaluateFn(AS_FN(expression));
         default:
             break;
     }
     return NIL_VALUE;
 }
-
-
-static void executeStatement(const Statement *statement);
-static void executeStatements(const Statements *statements);
 
 
 static void executePut(const Put *statement) {
@@ -330,6 +399,28 @@ static void executeContinue(const Continue *statement) {
 }
 
 
+static void executeFnDeclaration(const FnDeclaration *statement) {
+#define GET_FUNCTION(statement) ((statement)->function)
+
+    ObjString *name = internString(statement->name.start, statement->name.length, strings());
+
+    if (!envAdd(env(), name, evaluateFn(statement->function))) {
+        runtimeError("can not redeclare a name in same scope", statement->name.line);
+    }
+
+#undef GET_FUNCTION
+}
+
+
+static void executeReturn(const Return *statement) {
+    if (isFunction()) {
+        interpreter.returnValue = evaluateExpression(statement->expression);
+        longjmp(functionBufs[functionIdx()], 1);
+    }
+    runtimeError("'return' can only be used inside a function body", 0);
+}
+
+
 static void executeExprStatement(const ExprStatement *statement) {
     (void)evaluateExpression(statement->expression);
 }
@@ -345,6 +436,8 @@ static void executeStatement(const Statement *statement) {
         case STATEMENT_FOR: return executeFor(AS_FOR(statement));
         case STATEMENT_BREAK: return executeBreak(AS_BREAK(statement));
         case STATEMENT_CONTINUE: return executeContinue(AS_CONTINUE(statement));
+        case STATEMENT_FN_DECLARATION: return executeFnDeclaration(AS_FN_DECLARATION(statement));
+        case STATEMENT_RETURN: return executeReturn(AS_RETURN(statement));
         case STATEMENT_EXPRESSION: return executeExprStatement(AS_EXPR_STATEMENT(statement));
         default:
             break;

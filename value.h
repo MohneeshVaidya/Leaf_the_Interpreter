@@ -20,12 +20,14 @@
 #define IS_BOOLEAN(value)       ((value).type == VALUE_BOOLEAN)
 #define IS_OBJ(value)           ((value).type == VALUE_OBJ)
 #define IS_STRING(value)        (isObjType(value, OBJ_STRING))
+#define IS_OBJ_FN(value)        (isObjType(value, OBJ_FN))
 
 
 #define AS_NUMBER(value)        ((value).as.number)
 #define AS_BOOLEAN(value)       ((value).as.boolean)
 #define AS_OBJ(value)           ((value).as.obj)
 #define AS_STRING(value)        ((ObjString *)AS_OBJ(value))
+#define AS_OBJ_FN(value)        ((ObjFn *)AS_OBJ(value))
 
 
 typedef enum ValueType {

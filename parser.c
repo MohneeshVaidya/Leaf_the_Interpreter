@@ -294,7 +294,7 @@ static void parseFnParameters(Fn *function) {
     if (!match(TOKEN_RIGHT_PAREN)) {
         for (;;) {
             if (function->arity == MAX_PARAMETERS) {
-                parseError("parameters count exceed 255");
+                parseError("parameters count exceed 256");
             }
 
             const Token *name = consume(TOKEN_IDENTIFIER, "expect a name");
@@ -513,10 +513,10 @@ static void appendExpression(Expressions *expressions, Expression *expression) {
 
 
 static Expressions *parseArguments() {
-    if (match(TOKEN_RIGHT_PAREN)) {
-        return NULL;
-    }
     Expressions *expressions = makeExpressions(arena());
+    if (match(TOKEN_RIGHT_PAREN)) {
+        return expressions;
+    }
     for (;;) {
         appendExpression(expressions, parseAssign());
         if (match(TOKEN_RIGHT_PAREN)) break;

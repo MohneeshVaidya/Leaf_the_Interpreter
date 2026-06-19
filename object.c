@@ -3,6 +3,7 @@
 
 
 #include "object.h"
+#include "expression.h"
 #include "memory.h"
 #include "table.h"
 #include "value.h"
@@ -16,6 +17,27 @@
 
 #define MAKE_OBJ(typeTag, type) \
     ((type *)(makeObj(typeTag, sizeof(type))))
+
+
+static void printString(ObjString *obj) {
+    printf("%s", obj->chars);
+}
+
+
+void printObj(const Obj *obj) {
+    switch (obj->type) {
+        case OBJ_STRING: {
+            return printString((ObjString *)obj);
+        }
+        case OBJ_FN: {
+            printf("fn () { }");
+            return;
+        }
+        default:
+            printf("obj");
+            break;
+    }
+}
 
 
 static uint32_t hash(const char *chars, int length, uint32_t initialHash) {
@@ -144,18 +166,16 @@ bool equalStrings(const ObjString *a, const ObjString *b) {
 }
 
 
-static void printString(ObjString *obj) {
-    printf("%s", obj->chars);
-}
+ObjFn *makeObjFn(Parameter *parameters, int arity, struct Block *block, struct Environment *closure) {
+    ObjFn *obj = MAKE_OBJ(OBJ_FN, ObjFn);
 
-
-void printObj(const Obj *obj) {
-    switch (obj->type) {
-        case OBJ_STRING: {
-            return printString((ObjString *)obj);
-        }
-        default:
-            printf("obj");
-            break;
+    for (int i = 0; i < arity; i++) {
+        obj->parameters[i] = parameters[i];
     }
+
+    obj->arity = arity;
+    obj->block = block;
+    obj->closure = closure;
+
+    return obj;
 }

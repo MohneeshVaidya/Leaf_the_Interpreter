@@ -6,6 +6,9 @@
 #include <stdbool.h>
 
 
+#include "expression.h"
+
+
 typedef enum ObjType {
     OBJ_STRING,
     OBJ_FN,
@@ -28,6 +31,10 @@ typedef struct ObjString {
 
 typedef struct ObjFn {
     Obj meta;
+    Parameter parameters[MAX_PARAMETERS];
+    int arity;
+    struct Block *block;
+    struct Environment *closure;
 } ObjFn;
 
 
@@ -39,10 +46,11 @@ typedef struct ObjStruct {
 struct Table;
 
 
+void printObj(const Obj *obj);
 ObjString *internString(const char *chars, int length, struct Table *strings);
 ObjString *addStrings(const ObjString *a, const ObjString *b, struct Table *strings);
 bool equalStrings(const ObjString *a, const ObjString *b);
-void printObj(const Obj *obj);
+ObjFn *makeObjFn(Parameter *parameters, int arity, struct Block *block, struct Environment *closure);
 
 
 #endif

@@ -1,7 +1,72 @@
-for var i = 1; i <= 5; i += 1 {
-    if i == 3 {
-        continue;
-    }
+fn outer() {
+    var a = 10;
 
-    putln i;
+    return fn() {
+        var b = 20;
+
+        return fn() {
+            a += 1;
+            b += 1;
+
+            put a;
+            put " ";
+            putln b;
+        };
+    };
 }
+
+var x = outer();
+var y = x();
+
+y();
+y();
+y();
+
+
+/*
+fn makeCounter() {
+    var count = 0;
+
+    return fn () {
+        count += 1;
+        return count;
+    };
+}
+
+var c1 = makeCounter();
+var c2 = makeCounter();
+
+putln c1();
+putln c1();
+
+putln c2();
+putln c2();
+
+
+fn add(a, b) {
+    var c = a + b;
+    return fn (value) {
+        return c += value;
+    };
+}
+
+var result = add(10, 12);
+putln result(10);
+putln result(10);
+putln result(11);
+putln result(11);
+
+var a = add(10, 12);
+var b = add(10, 12);
+
+putln a(1);
+putln a(1);
+putln a(1);
+
+putln "";
+
+putln b(1);
+putln b(1);
+putln b(2);
+
+*/
