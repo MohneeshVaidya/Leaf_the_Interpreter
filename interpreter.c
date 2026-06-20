@@ -17,6 +17,9 @@
 #include "value.h"
 
 
+// #define PRINT_RUNTIME_OBJECTS
+
+
 #define MAX_LOOP_DEPTH (1024)
 #define MAX_CALL_DEPTH  (1024)
 
@@ -30,28 +33,18 @@ jmp_buf continueBufs[MAX_LOOP_DEPTH];
 jmp_buf functionBufs[MAX_CALL_DEPTH];
 
 
-typedef struct Interpreter {
-    Environment *env;
-    Table strings;
-    bool isLoop;
-    bool isFunction;
-    int loopIdx;
-    int functionIdx;
-    Value returnValue;
-} Interpreter;
-
-
 static Interpreter interpreter;
 
 
 static void initInterpreter() {
-    interpreter.env = makeEnv();
-    initTable(&interpreter.strings);
     interpreter.isLoop = false;
     interpreter.isFunction = false;
     interpreter.loopIdx= -1;
     interpreter.functionIdx = -1;
     interpreter.returnValue = NIL_VALUE;
+    interpreter.objects = NULL;
+    initTable(&interpreter.strings, &interpreter);
+    interpreter.env = makeEnv(&interpreter);
 }
 
 
@@ -63,6 +56,7 @@ static void freeInterpreter() {
     interpreter.loopIdx = -1;
     interpreter.functionIdx = -1;
     interpreter.returnValue = NIL_VALUE;
+    interpreter.objects = NULL;
 }
 
 
@@ -73,6 +67,7 @@ static bool isFunction() { return interpreter.isFunction; }
 static int loopIdx() { return interpreter.loopIdx; }
 static int functionIdx() { return interpreter.functionIdx; }
 static Value returnValue() { return interpreter.returnValue; }
+static Obj **objects() { return &interpreter.objects; }
 
 
 void printError(const char *format, ...) {
@@ -117,7 +112,10 @@ static Value performCompoundAssign(ObjString *name, Value rightValue, Token toke
                                 token.type ==  TOKEN_STAR_EQUAL ? TOKEN_STAR : (
                                     token.type == TOKEN_PERCENT_EQUAL ? TOKEN_PERCENT : TOKEN_STAR_STAR))));
 
-    return performBinary(leftValue, rightValue, (Token){ .line = token.line, .type = type }, strings());
+    return performBinary(leftValue,
+                         rightValue,
+                         (Token){ .line = token.line, .type = type },
+                         &interpreter);
 }
 
 
@@ -128,17 +126,19 @@ static Value evaluateAssign(const Assign *expression) {
         runtimeError("'=' expects a name as left operand", line);
     }
 
-    ObjString *name = internString(expression->left->token.start, expression->left->token.length, strings());
+    ObjString *name = internString(expression->left->token.start,
+                                   expression->left->token.length,
+                                   &interpreter);
     Value value = evaluateExpression(expression->right);
 
     if (EXPRESSION_TOKEN(expression).type == TOKEN_EQUAL) {
         if (!envGet(env(), name, NULL)) {
             runtimeError("can not assign value to undeclared name", line);
         }
-        envSet(env(), name, value);
+        envSet(env(), name, value, &interpreter);
     } else {
         value = performCompoundAssign(name, value, EXPRESSION_TOKEN(expression));
-        envSet(env(), name, value);
+        envSet(env(), name, value, &interpreter);
     }
     return value;
 }
@@ -153,7 +153,10 @@ static Value evaluateTernary(const Ternary *expression) {
 static Value evaluateBinary(const Binary *expression) {
     Value left = evaluateExpression(expression->left);
     Value right = evaluateExpression(expression->right);
-    return performBinary(left, right, expression->meta.token, strings());
+    return performBinary(left,
+                         right,
+                         expression->meta.token,
+                         &interpreter);
 }
 
 
@@ -175,16 +178,18 @@ static Value callFunction(ObjFn *function, const Expressions *arguments, int lin
 
     interpreter.functionIdx++;
 
-    Environment *currentEnv = env();
     bool currentIsFunction = isFunction();
     interpreter.isFunction = true;
 
-    Environment *env_ = makeEnv();
+    Environment *env_ = makeEnv(&interpreter);
     for (int i = 0; i < function->arity; i++) {
-        ObjString *name = internString(function->parameters[i].start, function->parameters[i].length, strings());
-        envAdd(env_, name, evaluateExpression(arguments->array[i]));
+        ObjString *name = internString(function->parameters[i].start,
+                                       function->parameters[i].length,
+                                       &interpreter);
+        envAdd(env_, name, evaluateExpression(arguments->array[i]), &interpreter);
     }
     env_->previous = function->closure;
+    env_->saved = env();
     interpreter.env = env_;
 
     if (setjmp(functionBufs[functionIdx()]) == 0) {
@@ -192,7 +197,7 @@ static Value callFunction(ObjFn *function, const Expressions *arguments, int lin
     }
 
     interpreter.isFunction = currentIsFunction;
-    interpreter.env = currentEnv;
+    interpreter.env = env_->saved;
 
     interpreter.functionIdx--;
     return returnValue();
@@ -200,7 +205,7 @@ static Value callFunction(ObjFn *function, const Expressions *arguments, int lin
 
 
 static Value callStructure(ObjStruct *structure) {
-    Environment *context = makeEnv();
+    Environment *context = makeEnv(&interpreter);
     Environment *current = env();
 
     context->previous = current;
@@ -208,11 +213,10 @@ static Value callStructure(ObjStruct *structure) {
 
     executeStatements(structure->block->statements);
 
-    // context->previous = NULL;
     interpreter.env = current;
 
     return OBJ_VALUE(
-        makeObjStructValue(context)
+        makeObjStructValue(context, &interpreter)
     );
 }
 
@@ -259,7 +263,9 @@ static Value evaluateGet(const Get *expression) {
     Value object = getObjectValue(expression->object, expression->meta.token.line);
 
     ObjStructValue *structure = AS_OBJ_STRUCT_VALUE(object);
-    ObjString *name = internString(FIELD_TOKEN(expression).start, FIELD_TOKEN(expression).length, strings());
+    ObjString *name = internString(FIELD_TOKEN(expression).start,
+                                   FIELD_TOKEN(expression).length,
+                                   &interpreter);
 
     Value result = NIL_VALUE;
     getFieldValue(structure, name, &result, expression->meta.token.line);
@@ -276,13 +282,15 @@ static Value evaluateSet(const Set *expression) {
     Value object = getObjectValue(expression->object, expression->meta.token.line);
 
     ObjStructValue *structure = AS_OBJ_STRUCT_VALUE(object);
-    ObjString *name = internString(FIELD_TOKEN(expression).start, FIELD_TOKEN(expression).length, strings());
+    ObjString *name = internString(FIELD_TOKEN(expression).start,
+                                   FIELD_TOKEN(expression).length,
+                                   &interpreter);
 
     getFieldValue(structure, name, NULL, expression->meta.token.line);
 
     Value result = evaluateExpression(expression->value);
 
-    envSet(structure->context, name, result);
+    envSet(structure->context, name, result, &interpreter);
 
     return result;
 
@@ -291,7 +299,9 @@ static Value evaluateSet(const Set *expression) {
 
 
 static Value getIdentifierValue(const Terminal *identifier) {
-    ObjString *name = internString(EXPRESSION_TOKEN(identifier).start, EXPRESSION_TOKEN(identifier).length, strings());
+    ObjString *name = internString(EXPRESSION_TOKEN(identifier).start,
+                                   EXPRESSION_TOKEN(identifier).length,
+                                   &interpreter);
     Value value;
     if (!envGet(env(), name, &value)) {
         runtimeError("trying to access undeclared name", identifier->meta.token.line);
@@ -315,7 +325,9 @@ static Value evaluateTerminal(const Terminal *expression) {
             return NIL_VALUE;
         }
         case TOKEN_STRING: {
-            return OBJ_VALUE(internString(EXPRESSION_TOKEN(expression).start, EXPRESSION_TOKEN(expression).length, strings()));
+            return OBJ_VALUE(internString(EXPRESSION_TOKEN(expression).start,
+                                          EXPRESSION_TOKEN(expression).length,
+                                          &interpreter));
         }
         case TOKEN_IDENTIFIER: {
             return getIdentifierValue(expression);
@@ -336,13 +348,16 @@ static Value evaluateFn(const Fn *expression) {
     ObjFn *objFn = makeObjFn((Parameter *)expression->parameters,
                              expression->arity,
                              expression->block,
-                             env());
+                             env(),
+                             &interpreter);
     return OBJ_VALUE(objFn);
 }
 
 
 struct Value evaluateStruct(const Struct *expression) {
-    ObjStruct *objStruct = makeObjStruct(expression->block, env());
+    ObjStruct *objStruct = makeObjStruct(expression->block,
+                                         env(),
+                                         &interpreter);
     return OBJ_VALUE(objStruct);
 }
 
@@ -386,10 +401,13 @@ static void executePutln(const Putln *statement) {
 
 
 static void executeVar(const Var *statement) {
-    ObjString *name = internString(statement->name.start, statement->name.length, strings());
+    ObjString *name = internString(statement->name.start,
+                                   statement->name.length,
+                                   &interpreter);
+
     Value value = evaluateExpression(statement->expression);
 
-    if (!envAdd(env(), name, value)) {
+    if (!envAdd(env(), name, value, &interpreter)) {
         runtimeError("redeclaring same name in same scope", statement->name.line);
     }
 }
@@ -401,7 +419,7 @@ static void executeConst(const Const *statement) {
 
 
 static void beginScope() {
-    Environment *env_ = makeEnv();
+    Environment *env_ = makeEnv(&interpreter);
     env_->previous = env();
     interpreter.env = env_;
 }
@@ -409,7 +427,7 @@ static void beginScope() {
 
 static void endScope() {
     Environment *env_ = env()->previous;
-    freeEnv(env());
+    freeEnv(interpreter.env);
     interpreter.env = env_;
 }
 
@@ -490,9 +508,11 @@ static void executeContinue(const Continue *statement) {
 
 
 static void executeFnDeclaration(const FnDeclaration *statement) {
-    ObjString *name = internString(statement->name.start, statement->name.length, strings());
+    ObjString *name = internString(statement->name.start,
+                                   statement->name.length,
+                                   &interpreter);
 
-    if (!envAdd(env(), name, evaluateFn(statement->function))) {
+    if (!envAdd(env(), name, evaluateFn(statement->function), &interpreter)) {
         runtimeError("can not redeclare a name in same scope", statement->name.line);
     }
 }
@@ -509,9 +529,11 @@ static void executeReturn(const Return *statement) {
 
 static void executeStructDeclaration(const StructDeclaration *statement) {
 
-    ObjString *name = internString(statement->name.start, statement->name.length, strings());
+    ObjString *name = internString(statement->name.start,
+                                   statement->name.length,
+                                   &interpreter);
 
-    if (!envAdd(env(), name, evaluateStruct(statement->structure))) {
+    if (!envAdd(env(), name, evaluateStruct(statement->structure), &interpreter)) {
         runtimeError("can not redeclare a name is same scope", statement->name.line);
     }
 }
@@ -560,6 +582,19 @@ static InterpretResult interpret_(const Statements *statements) {
 }
 
 
+static void printRuntimeObjects() {
+    printf("\n\nPrinting runtime objects...\n");
+    Obj *current = *objects();
+    for (;
+        current;
+        current = current->next
+    ) {
+        printObj(current);
+        printf("\n\n");
+    }
+}
+
+
 static void freeThings(Tokens *tokens, Statements *statements, Arena *arena) {
     if (tokens) freeTokens(tokens);
     if (statements) freeStatements(statements);
@@ -587,6 +622,11 @@ InterpretResult interpret(const char *source) {
 
     initInterpreter();
     InterpretResult result = interpret_(&statements);
+
+#ifdef PRINT_RUNTIME_OBJECTS
+    printRuntimeObjects();
+#endif
+
     freeInterpreter();
 
     freeThings(NULL, &statements, &arena);

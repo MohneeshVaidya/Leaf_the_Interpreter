@@ -4,39 +4,45 @@
 #include "environment.h"
 #include "memory.h"
 #include "table.h"
-#include "value.h"
 
 
-Environment *makeEnv() {
-    Environment *env = REALLOCATE(NULL, 1, Environment);
+Environment *makeEnv(Interpreter *interpreter) {
+    Environment *env = REALLOCATE(NULL, 0, 1, interpreter, Environment);
+
+    env->meta.type = OBJ_ENVIRONMENT;
+    env->meta.next = interpreter->objects;
+    interpreter->objects = (Obj *)env;
+    env->meta.isMarked = false;
+
     env->previous = NULL;
-    initTable(&env->table);
+    env->saved = NULL;
+    initTable(&env->table, interpreter);
     return env;
 }
 
 
 void freeEnv(Environment *env) {
     env->previous = NULL;
+    env->saved = NULL;
     freeTable(&env->table);
-    FREE(env, Environment);
 }
 
 
-bool envAdd(Environment *env, ObjString *name, Value value) {
+bool envAdd(Environment *env, ObjString *name, Value value, Interpreter *interpreter) {
     if (tableGet(&env->table, name, NULL)) {
         return false;
     }
-    return tableSet(&env->table, name, value);
+    return tableSet(&env->table, name, value, interpreter);
 }
 
 
-bool envSet(Environment *env, ObjString *name, Value value) {
+bool envSet(Environment *env, ObjString *name, Value value, Interpreter *interpreter) {
     if (tableGet(&env->table, name, NULL)) {
-        tableSet(&env->table, name, value);
+        tableSet(&env->table, name, value, interpreter);
         return true;
     }
     if (env->previous) {
-        return envSet(env->previous, name, value);
+        return envSet(env->previous, name, value, interpreter);
     }
     return false;
 }

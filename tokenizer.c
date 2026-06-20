@@ -415,7 +415,9 @@ bool makeTokens(Tokens *tokens_, const char *source) {
 
 
 void freeTokens(Tokens *tokens) {
+    int oldCapacity = tokens->capacity;
+
     tokens->capacity = 0;
     tokens->count = 0;
-    tokens->array = FREE(tokens->array, Token);
+    tokens->array = FREE(tokens->array, oldCapacity, Token);
 }

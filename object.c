@@ -7,7 +7,6 @@
 #include "memory.h"
 #include "table.h"
 #include "value.h"
-#include "environment.h"
 
 
 // #define DEBUG_STRING_INTERNING
@@ -16,8 +15,8 @@
 #define INITIAL_HASH (2166136u)
 
 
-#define MAKE_OBJ(typeTag, type) \
-    ((type *)(makeObj(typeTag, sizeof(type))))
+#define MAKE_OBJ(typeTag, interpreter, type) \
+    ((type *)(makeObj(typeTag, sizeof(type), interpreter)))
 
 
 static void printString(ObjString *obj) {
@@ -60,6 +59,10 @@ void printObj(const Obj *obj) {
         }
         case OBJ_STRUCT_VALUE: {
             return printObjStructValue((ObjStructValue *)obj);
+        }
+        case OBJ_ENVIRONMENT: {
+            printf("Environment");
+            return;
         }
         default:
             printf("obj");
@@ -115,17 +118,22 @@ static ObjString *searchKeyTwoStrings(const char *chars1, int length1, const cha
 }
 
 
-static Obj *makeObj(ObjType typeTag, int bytes) {
-    Obj *obj = REALLOCATE(NULL, bytes, Obj);
+static Obj *makeObj(ObjType typeTag, int bytes, Interpreter *interpreter) {
+    Obj *obj = REALLOCATE(NULL, 0, bytes, interpreter, Obj);
+
     obj->type = typeTag;
+    obj->next = interpreter->objects;
+    interpreter->objects = obj;
+    obj->isMarked = false;
+
     return obj;
 }
 
 
-ObjString *internString(const char *chars, int length, struct Table *strings) {
+ObjString *internString(const char *chars, int length, Interpreter *interpreter) {
     uint32_t hash_ = hash(chars, length, INITIAL_HASH);
 
-    ObjString *string = searchKey(chars, length, hash_, strings);
+    ObjString *string = searchKey(chars, length, hash_, &interpreter->strings);
     if (string) {
         return string;
     }
@@ -134,9 +142,9 @@ ObjString *internString(const char *chars, int length, struct Table *strings) {
     printf("Creating string '%.*s'\n", length, chars);
 #endif
 
-    string = MAKE_OBJ(OBJ_STRING, ObjString);
+    string = MAKE_OBJ(OBJ_STRING, interpreter, ObjString);
 
-    string->chars = REALLOCATE(NULL, length + 1, char);
+    string->chars = REALLOCATE(NULL, 0, length + 1, interpreter, char);
 
     memcpy(string->chars, chars, length);
     string->chars[length] = '\0';
@@ -144,17 +152,17 @@ ObjString *internString(const char *chars, int length, struct Table *strings) {
     string->length = length;
     string->hash = hash_;
 
-    tableSet(strings, string, NIL_VALUE);
+    tableSet(&interpreter->strings, string, NIL_VALUE, interpreter);
 
     return string;
 }
 
 
-ObjString *addStrings(const ObjString *a, const ObjString *b, Table *strings) {
+ObjString *addStrings(const ObjString *a, const ObjString *b, Interpreter *interpreter) {
 
     uint32_t hash_ = hash(b->chars, b->length, hash(a->chars, a->length, INITIAL_HASH));
 
-    ObjString *string = searchKeyTwoStrings(a->chars, a->length, b->chars, b->length, hash_, strings);
+    ObjString *string = searchKeyTwoStrings(a->chars, a->length, b->chars, b->length, hash_, &interpreter->strings);
     if (string) {
         return string;
     }
@@ -163,11 +171,11 @@ ObjString *addStrings(const ObjString *a, const ObjString *b, Table *strings) {
     printf("Adding strings '%.*s' & '%.*s'\n", a->length, a->chars, b->length, b->chars);
 #endif
 
-    string = MAKE_OBJ(OBJ_STRING, ObjString);
+    string = MAKE_OBJ(OBJ_STRING, interpreter, ObjString);
 
     int length = a->length + b->length;
 
-    string->chars = REALLOCATE(NULL, length + 1, char);
+    string->chars = REALLOCATE(NULL, 0, length + 1, interpreter, char);
     memcpy(string->chars, a->chars, a->length);
     memcpy(string->chars + a->length, b->chars, b->length);
     string->chars[length] = '\0';
@@ -175,7 +183,7 @@ ObjString *addStrings(const ObjString *a, const ObjString *b, Table *strings) {
     string->length = length;
     string->hash = hash_;
 
-    tableSet(strings, string, NIL_VALUE);
+    tableSet(&interpreter->strings, string, NIL_VALUE, interpreter);
 
     return string;
 }
@@ -194,8 +202,8 @@ bool equalStrings(const ObjString *a, const ObjString *b) {
 }
 
 
-ObjFn *makeObjFn(Parameter *parameters, int arity, struct Block *block, struct Environment *closure) {
-    ObjFn *obj = MAKE_OBJ(OBJ_FN, ObjFn);
+ObjFn *makeObjFn(Parameter *parameters, int arity, struct Block *block, struct Environment *closure, Interpreter *interpreter) {
+    ObjFn *obj = MAKE_OBJ(OBJ_FN, interpreter, ObjFn);
 
     for (int i = 0; i < arity; i++) {
         obj->parameters[i] = parameters[i];
@@ -209,16 +217,16 @@ ObjFn *makeObjFn(Parameter *parameters, int arity, struct Block *block, struct E
 }
 
 
-ObjStruct *makeObjStruct(struct Block *block, struct Environment *closure) {
-    ObjStruct *obj = MAKE_OBJ(OBJ_STRUCT, ObjStruct);
+ObjStruct *makeObjStruct(struct Block *block, struct Environment *closure, Interpreter *interpreter) {
+    ObjStruct *obj = MAKE_OBJ(OBJ_STRUCT, interpreter, ObjStruct);
     obj->block = block;
     obj->closure = closure;
     return obj;
 }
 
 
-ObjStructValue *makeObjStructValue(struct Environment *context) {
-    ObjStructValue *obj = MAKE_OBJ(OBJ_STRUCT_VALUE, ObjStructValue);
+ObjStructValue *makeObjStructValue(struct Environment *context, Interpreter *interpreter) {
+    ObjStructValue *obj = MAKE_OBJ(OBJ_STRUCT_VALUE, interpreter, ObjStructValue);
     obj->context = context;
     return obj;
 }

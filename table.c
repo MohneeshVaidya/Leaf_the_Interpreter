@@ -22,18 +22,20 @@ static void initEntries(Entry *entries, int capacity) {
 }
 
 
-void initTable(Table *table) {
+void initTable(Table *table, Interpreter *interpreter) {
     table->capacity = INITIAL_CAPACITY;
     table->count = 0;
-    table->array = REALLOCATE(NULL, table->capacity, Entry);
+    table->array = REALLOCATE(NULL, 0, table->capacity, interpreter, Entry);
     initEntries(table->array, table->capacity);
 }
 
 
 void freeTable(Table *table) {
+    int oldCapacity = table->capacity;
+
     table->capacity = 0;
     table->count = 0;
-    table->array = FREE(table->array, Entry);
+    table->array = FREE(table->array, oldCapacity, Entry);
 }
 
 
@@ -87,13 +89,13 @@ static Entry *findEntryForLookup(Entry *entries, int capacity, const ObjString *
 }
 
 
-static void ensureCapacity(Table *table) {
+static void ensureCapacity(Table *table, Interpreter *interpreter) {
     if (table->count < table->capacity * LOAD_FACTOR) {
         return;
     }
     int capacity = GROW_CAPACITY(table->capacity);
     int count = 0;
-    Entry *entries = REALLOCATE(NULL, capacity, Entry);
+    Entry *entries = REALLOCATE(NULL, table->capacity, capacity, interpreter, Entry);
     initEntries(entries, capacity);
 
     for (int i = 0; i < table->capacity; i++) {
@@ -109,7 +111,7 @@ static void ensureCapacity(Table *table) {
         }
     }
 
-    FREE(table->array, Entry);
+    FREE(table->array, table->capacity, Entry);
 
     table->capacity = capacity;
     table->count = count;
@@ -117,8 +119,8 @@ static void ensureCapacity(Table *table) {
 }
 
 
-bool tableSet(Table *table, ObjString *key, Value value) {
-    ensureCapacity(table);
+bool tableSet(Table *table, ObjString *key, Value value, Interpreter *interpreter) {
+    ensureCapacity(table, interpreter);
 
     Entry *entry = findEntryForInsertion(table->array, table->capacity, key);
     if (entry) {

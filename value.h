@@ -5,7 +5,7 @@
 #include <stdbool.h>
 
 
-#include "object.h"
+#include "forward.h"
 #include "tokenizer.h"
 
 
@@ -34,31 +34,9 @@
 #define AS_OBJ_STRUCT_VALUE(value)  ((ObjStructValue *)AS_OBJ(value))
 
 
-typedef enum ValueType {
-    VALUE_NIL,
-    VALUE_TOMBSTONE,
-    VALUE_NUMBER,
-    VALUE_BOOLEAN,
-    VALUE_OBJ,
-} ValueType;
-
-
-typedef struct Value {
-    ValueType type;
-    union {
-        double number;
-        bool boolean;
-        Obj *obj;
-    } as;
-} Value;
-
-
-struct Table;
-
-
 void printValue(Value value);
 bool isTruthy(Value a);
-Value performBinary(Value a, Value b, Token token, struct Table *strings);
+Value performBinary(Value a, Value b, Token token, Interpreter *interpreter);
 Value performUnary(Value a, Token token);
 
 

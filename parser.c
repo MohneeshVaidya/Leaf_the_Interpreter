@@ -658,7 +658,9 @@ bool parseStatements(Statements *statements, const Tokens *tokens, Arena *arena)
 
 
 void freeStatements(Statements *statements) {
+    int oldCapacity = statements->capacity;
+
     statements->capacity = 0;
     statements->count = 0;
-    statements->array = FREE(statements->array, Statement*);
+    statements->array = FREE(statements->array, oldCapacity, Statement*);
 }

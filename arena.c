@@ -9,13 +9,13 @@
 
 void initArena(Arena *arena) {
     arena->capacity = ARENA_CAPACITY;
-    arena->memory = REALLOCATE(NULL, arena->capacity, byte);
+    arena->memory = REALLOCATE(NULL, 0, arena->capacity, NULL, byte);
     arena->current = arena->memory;
 }
 
 
 void freeArena(Arena *arena) {
-    FREE(arena->memory, byte);
+    FREE(arena->memory, arena->capacity, byte);
     arena->memory = arena->current = NULL;
     arena->capacity = 0;
 }

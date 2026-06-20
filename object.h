@@ -2,65 +2,36 @@
 #define leaf_object_h
 
 
-#include <stdint.h>
-#include <stdbool.h>
-
-
+#include "forward.h"
 #include "expression.h"
-
-
-typedef enum ObjType {
-    OBJ_STRING,
-    OBJ_FN,
-    OBJ_STRUCT,
-    OBJ_STRUCT_VALUE
-} ObjType;
-
-
-typedef struct Obj {
-    ObjType type;
-} Obj;
-
-
-typedef struct ObjString {
-    Obj meta;
-    char *chars;
-    int length;
-    uint32_t hash;
-} ObjString;
-
-
-typedef struct ObjFn {
-    Obj meta;
-    Parameter parameters[MAX_PARAMETERS];
-    int arity;
-    struct Block *block;
-    struct Environment *closure;
-} ObjFn;
-
-
-struct Table;
-
-typedef struct ObjStruct {
-    Obj meta;
-    struct Block *block;
-    struct Environment *closure;
-} ObjStruct;
-
-
-typedef struct ObjStructValue {
-    Obj meta;
-    struct Environment *context;
-} ObjStructValue;
+#include "statement.h"
 
 
 void printObj(const Obj *obj);
-ObjString *internString(const char *chars, int length, struct Table *strings);
-ObjString *addStrings(const ObjString *a, const ObjString *b, struct Table *strings);
-bool equalStrings(const ObjString *a, const ObjString *b);
-ObjFn *makeObjFn(Parameter *parameters, int arity, struct Block *block, struct Environment *closure);
-ObjStruct *makeObjStruct(struct Block *block, struct Environment *closure);
-ObjStructValue *makeObjStructValue(struct Environment *context);
+
+ObjString *internString(const char *chars,
+                        int length,
+                        Interpreter *interpreter);
+
+ObjString *addStrings(const ObjString *a,
+                      const ObjString *b,
+                      Interpreter *interpreter);
+
+bool equalStrings(const ObjString *a,
+                  const ObjString *b);
+
+ObjFn *makeObjFn(Parameter *parameters,
+                 int arity,
+                 Block *block,
+                 Environment *closure,
+                 Interpreter *interpreter);
+
+ObjStruct *makeObjStruct(Block *block,
+                         Environment *closure,
+                         Interpreter *interpreter);
+
+ObjStructValue *makeObjStructValue(Environment *context,
+                                   Interpreter *interpreter);
 
 
 #endif

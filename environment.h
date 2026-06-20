@@ -2,19 +2,17 @@
 #define leaf_environment_h
 
 
-#include "table.h"
+#include "forward.h"
 
 
-typedef struct Environment {
-    struct Environment *previous;
-    Table table;
-} Environment;
+#define IS_ENVIRONMENT(value)       (isObjType(value, OBJ_ENVIRONMENT))
+#define AS_ENVIRONMENT(value)       ((Environment *)AS_OBJ(value))
 
 
-Environment *makeEnv();
+Environment *makeEnv(Interpreter *interpreter);
 void freeEnv(Environment *env);
-bool envAdd(Environment *env, ObjString *name, Value value);
-bool envSet(Environment *env, ObjString *name, Value value);
+bool envAdd(Environment *env, ObjString *name, Value value, Interpreter *interpreter);
+bool envSet(Environment *env, ObjString *name, Value value, Interpreter *interpreter);
 bool envGet(Environment *env, ObjString *name, Value *value);
 
 
