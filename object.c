@@ -7,6 +7,7 @@
 #include "memory.h"
 #include "table.h"
 #include "value.h"
+#include "environment.h"
 
 
 // #define DEBUG_STRING_INTERNING
@@ -24,14 +25,41 @@ static void printString(ObjString *obj) {
 }
 
 
+static void printObjStructValue(ObjStructValue *obj) {
+#define GET_TABLE(obj)  ((obj)->context->table)
+
+    printf("{\n");
+    for (int i = 0; i < GET_TABLE(obj).capacity; i++) {
+        Entry *entry = GET_TABLE(obj).array + i;
+        if (entry->key != NULL) {
+            printf("\t");
+            printString(entry->key);
+            printf(" : ");
+            printValue(entry->value);
+            printf("\n");
+        }
+    }
+    printf("}");
+
+#undef GET_TABLE
+}
+
+
 void printObj(const Obj *obj) {
     switch (obj->type) {
         case OBJ_STRING: {
-            return printString((ObjString *)obj);
+            return printString((ObjString *)(obj));
         }
         case OBJ_FN: {
             printf("fn () { }");
             return;
+        }
+        case OBJ_STRUCT: {
+            printf("struct { }");
+            return;
+        }
+        case OBJ_STRUCT_VALUE: {
+            return printObjStructValue((ObjStructValue *)obj);
         }
         default:
             printf("obj");
@@ -177,5 +205,20 @@ ObjFn *makeObjFn(Parameter *parameters, int arity, struct Block *block, struct E
     obj->block = block;
     obj->closure = closure;
 
+    return obj;
+}
+
+
+ObjStruct *makeObjStruct(struct Block *block, struct Environment *closure) {
+    ObjStruct *obj = MAKE_OBJ(OBJ_STRUCT, ObjStruct);
+    obj->block = block;
+    obj->closure = closure;
+    return obj;
+}
+
+
+ObjStructValue *makeObjStructValue(struct Environment *context) {
+    ObjStructValue *obj = MAKE_OBJ(OBJ_STRUCT_VALUE, ObjStructValue);
+    obj->context = context;
     return obj;
 }

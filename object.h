@@ -13,6 +13,7 @@ typedef enum ObjType {
     OBJ_STRING,
     OBJ_FN,
     OBJ_STRUCT,
+    OBJ_STRUCT_VALUE
 } ObjType;
 
 
@@ -38,12 +39,19 @@ typedef struct ObjFn {
 } ObjFn;
 
 
+struct Table;
+
 typedef struct ObjStruct {
     Obj meta;
+    struct Block *block;
+    struct Environment *closure;
 } ObjStruct;
 
 
-struct Table;
+typedef struct ObjStructValue {
+    Obj meta;
+    struct Environment *context;
+} ObjStructValue;
 
 
 void printObj(const Obj *obj);
@@ -51,6 +59,8 @@ ObjString *internString(const char *chars, int length, struct Table *strings);
 ObjString *addStrings(const ObjString *a, const ObjString *b, struct Table *strings);
 bool equalStrings(const ObjString *a, const ObjString *b);
 ObjFn *makeObjFn(Parameter *parameters, int arity, struct Block *block, struct Environment *closure);
+ObjStruct *makeObjStruct(struct Block *block, struct Environment *closure);
+ObjStructValue *makeObjStructValue(struct Environment *context);
 
 
 #endif

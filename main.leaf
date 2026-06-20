@@ -1,72 +1,281 @@
-fn outer() {
-    var a = 10;
+putln "========== TEST 1 : EMPTY STRUCT ==========";
 
-    return fn() {
-        var b = 20;
-
-        return fn() {
-            a += 1;
-            b += 1;
-
-            put a;
-            put " ";
-            putln b;
-        };
-    };
+struct EmptyStruct {
 }
 
-var x = outer();
-var y = x();
-
-y();
-y();
-y();
+var emptyStructObj = EmptyStruct();
+putln emptyStructObj;
 
 
-/*
-fn makeCounter() {
+putln "";
+putln "========== TEST 2 : SINGLE FIELD ==========";
+
+struct SingleFieldUser {
+    var name = "Mohneesh";
+}
+
+var singleFieldUser = SingleFieldUser();
+putln singleFieldUser.name;
+
+
+putln "";
+putln "========== TEST 3 : MULTIPLE FIELDS ==========";
+
+struct MultiFieldUser {
+    var name = "Mohneesh";
+    var age = 25;
+    var active = true;
+}
+
+var multiFieldUser = MultiFieldUser();
+
+putln multiFieldUser.name;
+putln multiFieldUser.age;
+putln multiFieldUser.active;
+
+
+putln "";
+putln "========== TEST 4 : INSTANCE ISOLATION ==========";
+
+struct IsolationUser {
+    var name = "Unknown";
+}
+
+var isolationUserA = IsolationUser();
+var isolationUserB = IsolationUser();
+
+isolationUserA.name = "Alice";
+
+putln isolationUserA.name;
+putln isolationUserB.name;
+
+
+putln "";
+putln "========== TEST 5 : MULTIPLE FIELD UPDATES ==========";
+
+struct UpdateUser {
+    var name = "Unknown";
+    var age = 0;
+}
+
+var updateUser = UpdateUser();
+
+updateUser.name = "Mohneesh";
+updateUser.age = 25;
+
+putln updateUser.name;
+putln updateUser.age;
+
+
+putln "";
+putln "========== TEST 6 : GLOBAL VARIABLE CAPTURE ==========";
+
+var globalDefaultName = "Mohneesh";
+
+struct GlobalCaptureUser {
+    var name = globalDefaultName;
+}
+
+var globalCaptureUser = GlobalCaptureUser();
+
+putln globalCaptureUser.name;
+
+
+putln "";
+putln "========== TEST 7 : INITIALIZER EVALUATED PER INSTANCE ==========";
+
+var structCounter = 0;
+
+fn nextStructId() {
+    structCounter += 1;
+    return structCounter;
+}
+
+struct IdStruct {
+    var id = nextStructId();
+}
+
+var idStructA = IdStruct();
+var idStructB = IdStruct();
+var idStructC = IdStruct();
+
+putln idStructA.id;
+putln idStructB.id;
+putln idStructC.id;
+
+
+putln "";
+putln "========== TEST 8 : STRUCT CONTAINS STRUCT ==========";
+
+struct AddressStruct {
+    var city = "Ahmedabad";
+}
+
+struct UserWithAddress {
+    var address = AddressStruct();
+}
+
+var userWithAddress = UserWithAddress();
+
+putln userWithAddress.address;
+putln userWithAddress.address.city;
+
+
+putln "";
+putln "========== TEST 9 : NESTED STRUCT MUTATION ==========";
+
+struct AddressMutation {
+    var city = "Ahmedabad";
+}
+
+struct UserMutation {
+    var address = AddressMutation();
+}
+
+var mutationUser = UserMutation();
+
+mutationUser.address.city = "Mumbai";
+
+putln mutationUser.address.city;
+
+
+putln "";
+putln "========== TEST 10 : NESTED INSTANCE ISOLATION ==========";
+
+struct AddressIsolation {
+    var city = "Ahmedabad";
+}
+
+struct UserIsolation {
+    var address = AddressIsolation();
+}
+
+var userIsolationA = UserIsolation();
+var userIsolationB = UserIsolation();
+
+userIsolationA.address.city = "Mumbai";
+
+putln userIsolationA.address.city;
+putln userIsolationB.address.city;
+
+
+putln "";
+putln "========== TEST 11 : FUNCTION INITIALIZER ==========";
+
+fn fullNameFunction() {
+    return "Mohneesh Vaidya";
+}
+
+struct FunctionInitUser {
+    var name = fullNameFunction();
+}
+
+var functionInitUser = FunctionInitUser();
+
+putln functionInitUser.name;
+
+
+putln "";
+putln "========== TEST 12 : CLOSURE INSIDE STRUCT ==========";
+
+struct CounterStruct {
     var count = 0;
 
-    return fn () {
+    var next = fn() {
         count += 1;
         return count;
     };
 }
 
-var c1 = makeCounter();
-var c2 = makeCounter();
+var counterStruct = CounterStruct();
 
-putln c1();
-putln c1();
-
-putln c2();
-putln c2();
+putln counterStruct.next();
+putln counterStruct.next();
+putln counterStruct.next();
 
 
-fn add(a, b) {
-    var c = a + b;
-    return fn (value) {
-        return c += value;
+putln "";
+putln "========== TEST 13 : FIELD SHADOWS GLOBAL ==========";
+
+var shadowName = "Global";
+
+struct ShadowUser {
+    var name = "Local";
+}
+
+var shadowUser = ShadowUser();
+
+putln shadowUser.name;
+putln shadowName;
+
+
+putln "";
+putln "========== TEST 14 : STRUCT CAPTURES CLOSURE ==========";
+
+var greetingMessage = "Hello";
+
+struct GreetingUser {
+    var message = fn(name) {
+        return greetingMessage + " " + name;
     };
 }
 
-var result = add(10, 12);
-putln result(10);
-putln result(10);
-putln result(11);
-putln result(11);
+var greetingUser = GreetingUser();
 
-var a = add(10, 12);
-var b = add(10, 12);
+putln greetingUser.message("Mohneesh");
 
-putln a(1);
-putln a(1);
-putln a(1);
 
 putln "";
+putln "========== TEST 15 : SIMPLE VALUE STRUCT ==========";
 
-putln b(1);
-putln b(1);
-putln b(2);
+struct NodeStruct {
+    var value = 0;
+}
 
-*/
+var nodeStruct = NodeStruct();
+
+nodeStruct.value = 42;
+
+putln nodeStruct.value;
+
+
+putln "";
+putln "========== TEST 16 : STRUCT EQUALITY ==========";
+
+struct EqualityUser {
+    var name = "Mohneesh";
+}
+
+var equalityUserA = EqualityUser();
+var equalityUserB = EqualityUser();
+
+putln equalityUserA == equalityUserB;
+putln equalityUserA == equalityUserA;
+
+
+putln "";
+putln "========== TEST 17 : STRUCT + CLOSURE TORTURE TEST ==========";
+
+fn makeUserClosure(initialName) {
+
+    struct ClosureUser {
+
+        var rename = fn(newName) {
+            initialName = newName;
+        };
+
+        var getName = fn() {
+            return initialName;
+        };
+    }
+
+    return ClosureUser();
+}
+
+var closureUser = makeUserClosure("Mohneesh");
+
+putln closureUser.getName();
+
+closureUser.rename("Vegito");
+
+putln closureUser.getName();

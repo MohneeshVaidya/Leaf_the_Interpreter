@@ -142,6 +142,9 @@ static Value equal(Value a, Value b, Token token) {
     if (IS_STRING(a)) {
         return BOOLEAN_VALUE(equalStrings(AS_STRING(a), AS_STRING(b)));
     }
+    if (IS_OBJ(a)) {
+        return BOOLEAN_VALUE((AS_OBJ(a) == AS_OBJ(b)));
+    }
     return BOOLEAN_VALUE(false);
 }
 

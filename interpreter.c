@@ -199,13 +199,94 @@ static Value callFunction(ObjFn *function, const Expressions *arguments, int lin
 }
 
 
+static Value callStructure(ObjStruct *structure) {
+    Environment *context = makeEnv();
+    Environment *current = env();
+
+    context->previous = current;
+    interpreter.env = context;
+
+    executeStatements(structure->block->statements);
+
+    // context->previous = NULL;
+    interpreter.env = current;
+
+    return OBJ_VALUE(
+        makeObjStructValue(context)
+    );
+}
+
+
 static Value evaluateCall(const Call *expression) {
     Value value = evaluateExpression(expression->object);
-    if (!IS_OBJ_FN(value)) {
-        runtimeError("only functions can be called", EXPRESSION_TOKEN(expression).line);
+    if (IS_OBJ_FN(value)) {
+        ObjFn *function = AS_OBJ_FN(value);
+        return callFunction(function, expression->arguments, EXPRESSION_TOKEN(expression).line);
     }
-    ObjFn *function = AS_OBJ_FN(value);
-    return callFunction(function, expression->arguments, EXPRESSION_TOKEN(expression).line);
+    if (IS_OBJ_STRUCT(value)) {
+        ObjStruct *structure = AS_OBJ_STRUCT(value);
+        return callStructure(structure);
+    }
+    runtimeError("only functions can be called", EXPRESSION_TOKEN(expression).line);
+    return NIL_VALUE;
+}
+
+
+static Value getObjectValue(const Expression *object, int line) {
+    Value value = evaluateExpression(object);
+    if (!IS_OBJ_STRUCT_VALUE(value)) {
+        runtimeError("accessing value from non-structure value", line);
+    }
+    return value;
+}
+
+
+static void getFieldValue(ObjStructValue *structure, ObjString *name, Value *result, int line) {
+    Environment *previous = structure->context->previous;
+    structure->context->previous = NULL;
+
+    if (!envGet(structure->context, name, result)) {
+        structure->context->previous = previous;
+        runtimeError("accessing non-existent field from the structure", line);
+    }
+    structure->context->previous = previous;
+}
+
+
+static Value evaluateGet(const Get *expression) {
+#define FIELD_TOKEN(expression) ((expression)->field->meta.token)
+
+    Value object = getObjectValue(expression->object, expression->meta.token.line);
+
+    ObjStructValue *structure = AS_OBJ_STRUCT_VALUE(object);
+    ObjString *name = internString(FIELD_TOKEN(expression).start, FIELD_TOKEN(expression).length, strings());
+
+    Value result = NIL_VALUE;
+    getFieldValue(structure, name, &result, expression->meta.token.line);
+
+    return result;
+
+#undef FIELD_TOKEN
+}
+
+
+static Value evaluateSet(const Set *expression) {
+#define FIELD_TOKEN(expression) ((expression)->field->meta.token)
+
+    Value object = getObjectValue(expression->object, expression->meta.token.line);
+
+    ObjStructValue *structure = AS_OBJ_STRUCT_VALUE(object);
+    ObjString *name = internString(FIELD_TOKEN(expression).start, FIELD_TOKEN(expression).length, strings());
+
+    getFieldValue(structure, name, NULL, expression->meta.token.line);
+
+    Value result = evaluateExpression(expression->value);
+
+    envSet(structure->context, name, result);
+
+    return result;
+
+#undef FIELD_TOKEN
 }
 
 
@@ -260,6 +341,12 @@ static Value evaluateFn(const Fn *expression) {
 }
 
 
+struct Value evaluateStruct(const Struct *expression) {
+    ObjStruct *objStruct = makeObjStruct(expression->block, env());
+    return OBJ_VALUE(objStruct);
+}
+
+
 static Value evaluateExpression(const Expression *expression) {
     if (expression == NULL) {
         return NIL_VALUE;
@@ -272,9 +359,12 @@ static Value evaluateExpression(const Expression *expression) {
         case EXPRESSION_BINARY: return evaluateBinary(AS_BINARY(expression));
         case EXPRESSION_UNARY: return evaluateUnary(AS_UNARY(expression));
         case EXPRESSION_CALL: return evaluateCall(AS_CALL(expression));
+        case EXPRESSION_GET: return evaluateGet(AS_GET(expression));
+        case EXPRESSION_SET: return evaluateSet(AS_SET(expression));
         case EXPRESSION_TERMINAL: return evaluateTerminal(AS_TERMINAL(expression));
         case EXPRESSION_GROUP: return evaluateGroup(AS_GROUP(expression));
         case EXPRESSION_FN: return evaluateFn(AS_FN(expression));
+        case EXPRESSION_STRUCT: return evaluateStruct(AS_STRUCT(expression));
         default:
             break;
     }
@@ -400,15 +490,11 @@ static void executeContinue(const Continue *statement) {
 
 
 static void executeFnDeclaration(const FnDeclaration *statement) {
-#define GET_FUNCTION(statement) ((statement)->function)
-
     ObjString *name = internString(statement->name.start, statement->name.length, strings());
 
     if (!envAdd(env(), name, evaluateFn(statement->function))) {
         runtimeError("can not redeclare a name in same scope", statement->name.line);
     }
-
-#undef GET_FUNCTION
 }
 
 
@@ -418,6 +504,16 @@ static void executeReturn(const Return *statement) {
         longjmp(functionBufs[functionIdx()], 1);
     }
     runtimeError("'return' can only be used inside a function body", 0);
+}
+
+
+static void executeStructDeclaration(const StructDeclaration *statement) {
+
+    ObjString *name = internString(statement->name.start, statement->name.length, strings());
+
+    if (!envAdd(env(), name, evaluateStruct(statement->structure))) {
+        runtimeError("can not redeclare a name is same scope", statement->name.line);
+    }
 }
 
 
@@ -438,6 +534,7 @@ static void executeStatement(const Statement *statement) {
         case STATEMENT_CONTINUE: return executeContinue(AS_CONTINUE(statement));
         case STATEMENT_FN_DECLARATION: return executeFnDeclaration(AS_FN_DECLARATION(statement));
         case STATEMENT_RETURN: return executeReturn(AS_RETURN(statement));
+        case STATEMENT_STRUCT_DECLARATION: return executeStructDeclaration(AS_STRUCT_DECLARATION(statement));
         case STATEMENT_EXPRESSION: return executeExprStatement(AS_EXPR_STATEMENT(statement));
         default:
             break;
