@@ -212,7 +212,6 @@ ObjFn *makeObjFn(Parameter *parameters, int arity, struct Block *block, struct E
     obj->arity = arity;
     obj->block = block;
     obj->closure = closure;
-
     return obj;
 }
 

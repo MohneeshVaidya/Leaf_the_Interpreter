@@ -5,7 +5,8 @@
 #include "forward.h"
 
 
-void collect(Interpreter *intepreter);
+void collect(Interpreter *interpreter);
+void sweepAll(Interpreter *interpreter);
 
 
 #endif

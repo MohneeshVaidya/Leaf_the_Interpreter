@@ -1,9 +1,17 @@
 #include "garbage_collector.h"
 #include "environment.h"
 #include "forward.h"
-#include "memory.h"
-#include "parser.h"
+#include "table.h"
 #include "value.h"
+#include "memory.h"
+
+
+// #define PRINT_FREEING_MESSAGE
+
+
+#ifdef PRINT_FREEING_MESSAGE
+#include <stdio.h>
+#endif
 
 
 #define MARK_OBJECT(object) ((object)->meta.isMarked = true)
@@ -29,13 +37,12 @@ static void freeEnvironment(Environment *env) {
 
 
 static void freeFn(ObjFn *function) {
-    freeStatements(function->block->statements);
+
     FREE(function, 1, ObjFn);
 }
 
 
 static void freeStruct(ObjStruct *structure) {
-    freeStatements(structure->block->statements);
     FREE(structure, 1, ObjStruct);
 }
 
@@ -46,6 +53,10 @@ static void freeStructValue(ObjStructValue *structure) {
 
 
 static void freeObject(Obj *object) {
+#ifdef PRINT_FREEING_MESSAGE
+    printf("freeing the object: %p\n", (void*)object);
+#endif
+
     switch (object->type) {
         case OBJ_STRING: {
             return freeString((ObjString *)object);
@@ -110,17 +121,17 @@ static void markEnvironment(Environment *env) {
 
 
 static void markFn(ObjFn *function) {
-    markEnvironment(function->closure);
+    markObject((Obj *)function->closure);
 }
 
 
 static void markStruct(ObjStruct *structure) {
-    markEnvironment(structure->closure);
+    markObject((Obj *)structure->closure);
 }
 
 
 static void markStructValue(ObjStructValue *structure) {
-    markEnvironment(structure->context);
+    markObject((Obj *)structure->context);
 }
 
 
@@ -171,6 +182,15 @@ static void markTable(Table *table) {
 }
 
 
+static void markTempStack(Value *stack, int top) {
+    for (int i = 0; i < top; i++) {
+        if (IS_OBJ(stack[i])) {
+            markObject(AS_OBJ(stack[i]));
+        }
+    }
+}
+
+
 static void mark(Environment *env) {
     if (!env) {
         return;
@@ -180,7 +200,21 @@ static void mark(Environment *env) {
 
 
 void collect(Interpreter *interpreter) {
-    // mark(interpreter->env);
-    // markTable(&interpreter->strings);
-    // sweep(&interpreter->objects);
+    mark(interpreter->env);
+    markTempStack(interpreter->tempStack, interpreter->tempTop);
+    markTable(&interpreter->strings);
+    sweep(&interpreter->objects);
+}
+
+
+void sweepAll(Interpreter *interpreter) {
+    Obj *current = interpreter->objects;
+    for (;current;) {
+        interpreter->objects = current->next;
+        freeObject(current);
+        current = interpreter->objects;
+    }
+
+
+    freeTable(&interpreter->strings);
 }

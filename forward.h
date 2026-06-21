@@ -8,6 +8,9 @@
 #include "expression.h"
 
 
+#define MAX_TEMP_STACK_DEPTH (1024)
+
+
 typedef struct Interpreter Interpreter;
 typedef struct Environment Environment;
 
@@ -107,17 +110,25 @@ struct Environment {
     Environment *previous;
     Environment *saved;
     Table table;
+    int debugId;
 };
 
 
 struct Interpreter {
     Environment *env;
     Table strings;
+
+    Value tempStack[MAX_TEMP_STACK_DEPTH];
+    int tempTop;
+
     bool isLoop;
     bool isFunction;
+
     int loopIdx;
     int functionIdx;
+
     Value returnValue;
+
     Obj *objects;
 };
 

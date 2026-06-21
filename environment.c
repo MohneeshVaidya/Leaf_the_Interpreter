@@ -17,6 +17,7 @@ Environment *makeEnv(Interpreter *interpreter) {
     env->previous = NULL;
     env->saved = NULL;
     initTable(&env->table, interpreter);
+
     return env;
 }
 

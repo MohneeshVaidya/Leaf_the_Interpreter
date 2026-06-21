@@ -9,6 +9,8 @@
 #include "arena.h"
 #include "environment.h"
 #include "expression.h"
+#include "forward.h"
+#include "garbage_collector.h"
 #include "object.h"
 #include "statement.h"
 #include "table.h"
@@ -37,6 +39,7 @@ static Interpreter interpreter;
 
 
 static void initInterpreter() {
+    interpreter.tempTop = 0;
     interpreter.isLoop = false;
     interpreter.isFunction = false;
     interpreter.loopIdx= -1;
@@ -51,6 +54,7 @@ static void initInterpreter() {
 static void freeInterpreter() {
     freeEnv(interpreter.env);
     freeTable(&interpreter.strings);
+    interpreter.tempTop = 0;
     interpreter.isLoop = false;
     interpreter.isFunction = false;
     interpreter.loopIdx = -1;
@@ -62,11 +66,12 @@ static void freeInterpreter() {
 
 static Environment *env() { return interpreter.env; }
 static Table *strings() { return &interpreter.strings; }
+static int tempTop() { return interpreter.tempTop; }
 static bool isLoop() { return interpreter.isLoop; }
 static bool isFunction() { return interpreter.isFunction; }
 static int loopIdx() { return interpreter.loopIdx; }
 static int functionIdx() { return interpreter.functionIdx; }
-static Value returnValue() { return interpreter.returnValue; }
+// static Value returnValue() { return interpreter.returnValue; }
 static Obj **objects() { return &interpreter.objects; }
 
 
@@ -84,6 +89,33 @@ void printError(const char *format, ...) {
 void runtimeError(const char *message, int line) {
     printError("runtime_error: [near line %d], %s", line, message);
     longjmp(interpreterBuf, 1);
+}
+
+
+static void tempPush(Value value) {
+    if (tempTop() == MAX_TEMP_STACK_DEPTH) {
+        printError("runtime_error: stack overflow\n");
+        longjmp(interpreterBuf, 1);
+    }
+    interpreter.tempStack[interpreter.tempTop++] = value;
+}
+
+
+static Value tempPop() {
+    if (tempTop() == 0) {
+        printError("runtime_error: stack underflow\n");
+        longjmp(interpreterBuf, 1);
+    }
+    return interpreter.tempStack[--interpreter.tempTop];
+}
+
+
+static Value tempTopValue() {
+    if (tempTop() == 0) {
+        printError("runtime_error: accessing empty stack\n");
+        longjmp(interpreterBuf, 1);
+    }
+    return interpreter.tempStack[tempTop() - 1];
 }
 
 
@@ -129,30 +161,35 @@ static Value evaluateAssign(const Assign *expression) {
     ObjString *name = internString(expression->left->token.start,
                                    expression->left->token.length,
                                    &interpreter);
-    Value value = evaluateExpression(expression->right);
+
+    tempPush(evaluateExpression(expression->right));
 
     if (EXPRESSION_TOKEN(expression).type == TOKEN_EQUAL) {
         if (!envGet(env(), name, NULL)) {
             runtimeError("can not assign value to undeclared name", line);
         }
-        envSet(env(), name, value, &interpreter);
+        envSet(env(), name, tempTopValue(), &interpreter);
     } else {
-        value = performCompoundAssign(name, value, EXPRESSION_TOKEN(expression));
-        envSet(env(), name, value, &interpreter);
+        tempPush(performCompoundAssign(name, tempPop(), EXPRESSION_TOKEN(expression)));
+        envSet(env(), name, tempTopValue(), &interpreter);
     }
-    return value;
+    return tempPop();
 }
 
 
 static Value evaluateTernary(const Ternary *expression) {
-    Value condition = evaluateExpression(expression->condition);
-    return isTruthy(condition) ? evaluateExpression(expression->first) : evaluateExpression(expression->second);
+    tempPush(evaluateExpression(expression->condition));
+    return isTruthy(tempPop()) ? evaluateExpression(expression->first) : evaluateExpression(expression->second);
 }
 
 
 static Value evaluateBinary(const Binary *expression) {
-    Value left = evaluateExpression(expression->left);
-    Value right = evaluateExpression(expression->right);
+    tempPush(evaluateExpression(expression->left));
+    tempPush(evaluateExpression(expression->right));
+
+    Value right = tempPop();
+    Value left = tempPop();
+
     return performBinary(left,
                          right,
                          expression->meta.token,
@@ -166,7 +203,7 @@ static Value evaluateUnary(const Unary *expression) {
 
 
 static Value callFunction(ObjFn *function, const Expressions *arguments, int line) {
-    interpreter.returnValue = NIL_VALUE;
+    tempPush(NIL_VALUE);
 
     if (arguments->count > MAX_PARAMETERS) {
         runtimeError("argument count exceeds 256", line);
@@ -181,7 +218,8 @@ static Value callFunction(ObjFn *function, const Expressions *arguments, int lin
     bool currentIsFunction = isFunction();
     interpreter.isFunction = true;
 
-    Environment *env_ = makeEnv(&interpreter);
+    Environment *env_ = (makeEnv(&interpreter));
+    tempPush(OBJ_VALUE(env_));
     for (int i = 0; i < function->arity; i++) {
         ObjString *name = internString(function->parameters[i].start,
                                        function->parameters[i].length,
@@ -191,6 +229,7 @@ static Value callFunction(ObjFn *function, const Expressions *arguments, int lin
     env_->previous = function->closure;
     env_->saved = env();
     interpreter.env = env_;
+    tempPop();
 
     if (setjmp(functionBufs[functionIdx()]) == 0) {
         executeStatements(function->block->statements);
@@ -200,12 +239,16 @@ static Value callFunction(ObjFn *function, const Expressions *arguments, int lin
     interpreter.env = env_->saved;
 
     interpreter.functionIdx--;
-    return returnValue();
+
+    Value result = tempPop();
+    return result;
 }
 
 
 static Value callStructure(ObjStruct *structure) {
     Environment *context = makeEnv(&interpreter);
+    tempPush(OBJ_VALUE(context));
+
     Environment *current = env();
 
     context->previous = current;
@@ -215,21 +258,30 @@ static Value callStructure(ObjStruct *structure) {
 
     interpreter.env = current;
 
-    return OBJ_VALUE(
+    Value result = OBJ_VALUE(
         makeObjStructValue(context, &interpreter)
     );
+
+    tempPop();
+    return result;
 }
 
 
 static Value evaluateCall(const Call *expression) {
-    Value value = evaluateExpression(expression->object);
-    if (IS_OBJ_FN(value)) {
-        ObjFn *function = AS_OBJ_FN(value);
-        return callFunction(function, expression->arguments, EXPRESSION_TOKEN(expression).line);
+    tempPush(evaluateExpression(expression->object));
+    if (IS_OBJ_FN(tempTopValue())) {
+        ObjFn *function = AS_OBJ_FN(tempTopValue());
+        Value result = callFunction(function, expression->arguments, EXPRESSION_TOKEN(expression).line);
+
+        tempPop();
+        return result;
     }
-    if (IS_OBJ_STRUCT(value)) {
-        ObjStruct *structure = AS_OBJ_STRUCT(value);
-        return callStructure(structure);
+    if (IS_OBJ_STRUCT(tempTopValue())) {
+        ObjStruct *structure = AS_OBJ_STRUCT(tempTopValue());
+        Value result = callStructure(structure);
+
+        tempPop();
+        return result;
     }
     runtimeError("only functions can be called", EXPRESSION_TOKEN(expression).line);
     return NIL_VALUE;
@@ -246,23 +298,25 @@ static Value getObjectValue(const Expression *object, int line) {
 
 
 static void getFieldValue(ObjStructValue *structure, ObjString *name, Value *result, int line) {
-    Environment *previous = structure->context->previous;
+    structure->context->saved = structure->context->previous;
     structure->context->previous = NULL;
 
     if (!envGet(structure->context, name, result)) {
-        structure->context->previous = previous;
+        structure->context->previous = structure->context->saved;
+        structure->context->saved = NULL;
         runtimeError("accessing non-existent field from the structure", line);
     }
-    structure->context->previous = previous;
+    structure->context->previous = structure->context->saved;
+    structure->context->saved = NULL;
 }
 
 
 static Value evaluateGet(const Get *expression) {
 #define FIELD_TOKEN(expression) ((expression)->field->meta.token)
 
-    Value object = getObjectValue(expression->object, expression->meta.token.line);
+    tempPush(getObjectValue(expression->object, expression->meta.token.line));
 
-    ObjStructValue *structure = AS_OBJ_STRUCT_VALUE(object);
+    ObjStructValue *structure = AS_OBJ_STRUCT_VALUE(tempTopValue());
     ObjString *name = internString(FIELD_TOKEN(expression).start,
                                    FIELD_TOKEN(expression).length,
                                    &interpreter);
@@ -270,6 +324,7 @@ static Value evaluateGet(const Get *expression) {
     Value result = NIL_VALUE;
     getFieldValue(structure, name, &result, expression->meta.token.line);
 
+    tempPop();
     return result;
 
 #undef FIELD_TOKEN
@@ -279,9 +334,9 @@ static Value evaluateGet(const Get *expression) {
 static Value evaluateSet(const Set *expression) {
 #define FIELD_TOKEN(expression) ((expression)->field->meta.token)
 
-    Value object = getObjectValue(expression->object, expression->meta.token.line);
+    tempPush(getObjectValue(expression->object, expression->meta.token.line));
 
-    ObjStructValue *structure = AS_OBJ_STRUCT_VALUE(object);
+    ObjStructValue *structure = AS_OBJ_STRUCT_VALUE(tempTopValue());
     ObjString *name = internString(FIELD_TOKEN(expression).start,
                                    FIELD_TOKEN(expression).length,
                                    &interpreter);
@@ -292,6 +347,7 @@ static Value evaluateSet(const Set *expression) {
 
     envSet(structure->context, name, result, &interpreter);
 
+    tempPop();
     return result;
 
 #undef FIELD_TOKEN
@@ -520,7 +576,9 @@ static void executeFnDeclaration(const FnDeclaration *statement) {
 
 static void executeReturn(const Return *statement) {
     if (isFunction()) {
-        interpreter.returnValue = evaluateExpression(statement->expression);
+
+        Value value = evaluateExpression(statement->expression);
+        interpreter.tempStack[tempTop() - 1] = value;
         longjmp(functionBufs[functionIdx()], 1);
     }
     runtimeError("'return' can only be used inside a function body", 0);
@@ -622,6 +680,8 @@ InterpretResult interpret(const char *source) {
 
     initInterpreter();
     InterpretResult result = interpret_(&statements);
+
+    sweepAll(&interpreter);
 
 #ifdef PRINT_RUNTIME_OBJECTS
     printRuntimeObjects();

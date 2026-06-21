@@ -232,8 +232,8 @@ static bool keyword(const char *start, size_t length) {
         appendToken(tokens(), TOKEN_STRUCT, start, length, line());
         return true;
     } else if (isSame(start, length, "make")) {
-        appendToken(tokens(), TOKEN_MAKE, start, length, line());
-        return true;
+        // appendToken(tokens(), TOKEN_MAKE, start, length, line());
+        // return true;
     } else if (isSame(start, length, "this")) {
         appendToken(tokens(), TOKEN_THIS, start, length, line());
         return true;
